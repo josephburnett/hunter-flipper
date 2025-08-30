@@ -1,6 +1,9 @@
 #pragma once
 #include "engine/engine.h"
 #include "terrain.h"
+#include "chunk_manager.h"
+#include "sonar_chart.h"
+#include "raycaster.h"
 
 typedef enum {
     GAME_MODE_NAV,
@@ -39,11 +42,12 @@ typedef struct {
     float turn_rate;
     float acceleration;
     
-    // Terrain system
-    TerrainManager* terrain;
+    // Infinite terrain system
+    ChunkManager* chunk_manager;
     
-    // Sonar chart for discovered areas
-    bool* sonar_chart;
-    uint16_t chart_width;
-    uint16_t chart_height;
+    // Advanced sonar chart with fading
+    SonarChart* sonar_chart;
+    
+    // Optimized raycasting
+    Raycaster* raycaster;
 } GameContext;

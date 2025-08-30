@@ -8,6 +8,12 @@ static const EntityDescription submarine_desc;
 static const EntityDescription torpedo_desc;
 static const LevelBehaviour level;
 
+// Collision callback for raycasting
+static bool collision_check_callback(int16_t x, int16_t y, void* context) {
+    ChunkManager* chunk_manager = (ChunkManager*)context;
+    return chunk_manager_check_collision(chunk_manager, x, y);
+}
+
 /****** Camera/Coordinate System ******/
 
 typedef struct {
@@ -160,33 +166,67 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
         }
     }
     
-    // Update ping with terrain detection
-    if(game_context->ping_active) {
+    // Update ping with advanced terrain detection
+    if(game_context->ping_active && game_context->raycaster && game_context->chunk_manager && game_context->sonar_chart) {
         uint32_t current_time = furi_get_tick();
         if(current_time - game_context->ping_timer > 50) { // Update every 50ms
             game_context->ping_radius += 2;
             game_context->ping_timer = current_time;
             
-            // Perform raycasting to detect terrain
-            if(game_context->terrain && game_context->sonar_chart) {
-                for(float angle = 0; angle < 2 * 3.14159f; angle += 0.1f) {
-                    int ray_x = (int)(game_context->ping_x + cosf(angle) * game_context->ping_radius);
-                    int ray_y = (int)(game_context->ping_y + sinf(angle) * game_context->ping_radius);
+            // Use optimized raycasting with adaptive quality
+            RayPattern* pattern = raycaster_get_adaptive_pattern(game_context->raycaster, false);
+            RayResult results[RAY_CACHE_SIZE];
+            
+            // Cast rays from ping center up to current radius
+            raycaster_cast_pattern(
+                game_context->raycaster, 
+                pattern,
+                (int16_t)game_context->ping_x, 
+                (int16_t)game_context->ping_y,
+                results,
+                collision_check_callback,
+                game_context->chunk_manager
+            );
+            
+            // Add discoveries to sonar chart
+            for(uint16_t i = 0; i < pattern->direction_count; i++) {
+                RayResult* result = &results[i];
+                if(result->ray_complete && result->distance <= game_context->ping_radius) {
+                    // Add terrain or water point to sonar chart
+                    sonar_chart_add_point(game_context->sonar_chart, 
+                                         result->hit_x, result->hit_y, result->hit_terrain);
                     
-                    if(ray_x >= 0 && ray_x < game_context->chart_width && 
-                       ray_y >= 0 && ray_y < game_context->chart_height) {
+                    // If ray hit terrain before max radius, also add intermediate water points
+                    if(result->hit_terrain && result->distance > 1) {
+                        int16_t start_x = (int16_t)game_context->ping_x;
+                        int16_t start_y = (int16_t)game_context->ping_y;
+                        int16_t dx = result->hit_x - start_x;
+                        int16_t dy = result->hit_y - start_y;
                         
-                        // Mark as discovered in sonar chart
-                        int chart_idx = ray_y * game_context->chart_width + ray_x;
-                        game_context->sonar_chart[chart_idx] = true;
+                        // Add water points along the ray path (every few steps)
+                        for(uint16_t step = 0; step < result->distance; step += 3) {
+                            int16_t water_x = start_x + (dx * step) / result->distance;
+                            int16_t water_y = start_y + (dy * step) / result->distance;
+                            sonar_chart_add_point(game_context->sonar_chart, water_x, water_y, false);
+                        }
                     }
                 }
             }
             
-            if(game_context->ping_radius > 40) { // Max ping radius (reduced for screen size)
+            if(game_context->ping_radius > 64) { // Increased max radius for infinite terrain
                 game_context->ping_active = false;
             }
         }
+    }
+    
+    // Update chunk manager for infinite terrain loading
+    if(game_context->chunk_manager) {
+        chunk_manager_update(game_context->chunk_manager, game_context->world_x, game_context->world_y);
+    }
+    
+    // Update sonar chart fading
+    if(game_context->sonar_chart) {
+        sonar_chart_update_fade(game_context->sonar_chart, furi_get_tick());
     }
     
     // Update submarine world position
@@ -198,8 +238,8 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     float new_world_x = game_context->world_x + dx;
     float new_world_y = game_context->world_y + dy;
     
-    // Check terrain collision in world coordinates
-    if(game_context->terrain && terrain_check_collision(game_context->terrain, (int)new_world_x, (int)new_world_y)) {
+    // Check terrain collision using chunk manager
+    if(game_context->chunk_manager && chunk_manager_check_collision(game_context->chunk_manager, (int)new_world_x, (int)new_world_y)) {
         // Stop submarine if hitting terrain
         game_context->velocity = 0;
     } else {
@@ -218,34 +258,51 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
     SubmarineContext* sub_context = context;
     GameContext* game_context = sub_context->game_context;
     
-    // Draw terrain - transform world coordinates to screen
-    if(game_context->terrain && game_context->sonar_chart) {
-        // Sample terrain around submarine's world position
-        int sample_radius = 80; // How far to sample around submarine
+    // Draw discovered terrain using advanced sonar chart
+    if(game_context->sonar_chart) {
+        int sample_radius = 80; // Screen area to query
         
-        for(int world_y = (int)game_context->world_y - sample_radius; 
-            world_y <= (int)game_context->world_y + sample_radius; world_y++) {
-            for(int world_x = (int)game_context->world_x - sample_radius; 
-                world_x <= (int)game_context->world_x + sample_radius; world_x++) {
+        // Query sonar chart for visible area
+        SonarBounds query_bounds = sonar_bounds_create(
+            (int16_t)game_context->world_x - sample_radius,
+            (int16_t)game_context->world_y - sample_radius,
+            (int16_t)game_context->world_x + sample_radius,
+            (int16_t)game_context->world_y + sample_radius
+        );
+        
+        SonarPoint* visible_points[512]; // Buffer for visible points
+        uint16_t point_count = sonar_chart_query_area(game_context->sonar_chart, 
+                                                     query_bounds, visible_points, 512);
+        
+        // Draw discovered points with fading
+        for(uint16_t i = 0; i < point_count; i++) {
+            SonarPoint* point = visible_points[i];
+            
+            // Transform world coordinates to screen
+            ScreenPoint screen = world_to_screen(game_context, point->world_x, point->world_y);
+            
+            // Only draw if on screen
+            if(screen.screen_x >= 0 && screen.screen_x < 128 &&
+               screen.screen_y >= 0 && screen.screen_y < 64) {
                 
-                // Check if this world coordinate is in bounds and discovered
-                if(world_x >= 0 && world_x < game_context->chart_width &&
-                   world_y >= 0 && world_y < game_context->chart_height) {
-                    
-                    int chart_idx = world_y * game_context->chart_width + world_x;
-                    if(game_context->sonar_chart[chart_idx] && 
-                       terrain_check_collision(game_context->terrain, world_x, world_y)) {
-                        
-                        // Transform world coordinates to screen
-                        ScreenPoint screen = world_to_screen(game_context, world_x, world_y);
-                        
-                        // Only draw if on screen
-                        if(screen.screen_x >= 0 && screen.screen_x < 128 &&
-                           screen.screen_y >= 0 && screen.screen_y < 64) {
+                if(point->is_terrain) {
+                    // Draw terrain with fade-based intensity
+                    uint8_t opacity = sonar_fade_state_opacity(point->fade_state);
+                    if(opacity > 128) {
+                        canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                    } else if(opacity > 64) {
+                        // Draw dimmer terrain (every other pixel)
+                        if(((int)screen.screen_x + (int)screen.screen_y) % 2 == 0) {
+                            canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                        }
+                    } else if(opacity > 32) {
+                        // Draw very dim terrain (every fourth pixel)
+                        if(((int)screen.screen_x + (int)screen.screen_y) % 4 == 0) {
                             canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
                         }
                     }
                 }
+                // Water points are not drawn (negative space)
             }
         }
     }
@@ -340,9 +397,9 @@ static void torpedo_update(Entity* self, GameManager* manager, void* context) {
     torp_context->world_x += dx;
     torp_context->world_y += dy;
     
-    // Check terrain collision in world coordinates
-    if(torp_context->game_context->terrain && 
-       terrain_check_collision(torp_context->game_context->terrain, (int)torp_context->world_x, (int)torp_context->world_y)) {
+    // Check terrain collision using chunk manager
+    if(torp_context->game_context->chunk_manager && 
+       chunk_manager_check_collision(torp_context->game_context->chunk_manager, (int)torp_context->world_x, (int)torp_context->world_y)) {
         // Torpedo hit terrain - remove it
         Level* current_level = game_manager_current_level_get(manager);
         torp_context->game_context->torpedo_count--;
@@ -421,17 +478,14 @@ static const LevelBehaviour level = {
 static void game_start(GameManager* game_manager, void* ctx) {
     GameContext* game_context = ctx;
     
-    // Initialize terrain system first
-    game_context->terrain = terrain_manager_alloc(12345, 0.5f); // seed=12345, elevation=0.5
+    // Initialize infinite terrain chunk manager
+    game_context->chunk_manager = chunk_manager_alloc();
     
-    // Initialize sonar chart (same size as screen for now)
-    game_context->chart_width = 128;
-    game_context->chart_height = 64;
-    size_t chart_size = game_context->chart_width * game_context->chart_height;
-    game_context->sonar_chart = malloc(chart_size * sizeof(bool));
-    if(game_context->sonar_chart) {
-        memset(game_context->sonar_chart, 0, chart_size * sizeof(bool));
-    }
+    // Initialize advanced sonar chart with fading
+    game_context->sonar_chart = sonar_chart_alloc();
+    
+    // Initialize optimized raycaster
+    game_context->raycaster = raycaster_alloc();
     
     // Set submarine screen position (always center)
     game_context->screen_x = 64;  // Center of 128px screen
@@ -441,8 +495,11 @@ static void game_start(GameManager* game_manager, void* ctx) {
     game_context->world_x = 64;
     game_context->world_y = 32;
     
-    // Search more thoroughly for water if starting position is in terrain
-    if(game_context->terrain) {
+    // Search for safe starting position in water using chunk manager
+    if(game_context->chunk_manager) {
+        // Update chunk manager with initial position to load terrain
+        chunk_manager_update(game_context->chunk_manager, game_context->world_x, game_context->world_y);
+        
         bool found_water = false;
         
         // First check if default position has enough open water around it
@@ -451,7 +508,7 @@ static void game_start(GameManager* game_manager, void* ctx) {
             for(int dx = -5; dx <= 5 && default_has_open_water; dx++) {
                 int check_x = (int)game_context->world_x + dx;
                 int check_y = (int)game_context->world_y + dy;
-                if(terrain_check_collision(game_context->terrain, check_x, check_y)) {
+                if(chunk_manager_check_collision(game_context->chunk_manager, check_x, check_y)) {
                     default_has_open_water = false;
                 }
             }
@@ -463,33 +520,31 @@ static void game_start(GameManager* game_manager, void* ctx) {
         
         // If not, search in expanding circles for a good water area
         if(!found_water) {
-            for(int radius = 10; radius <= 50 && !found_water; radius += 5) {
+            for(int radius = 10; radius <= 200 && !found_water; radius += 10) {
                 for(int angle = 0; angle < 36 && !found_water; angle++) {
                     float test_angle = angle * (2.0f * 3.14159f / 36.0f);
                     int test_x = (int)(game_context->world_x + cosf(test_angle) * radius);
                     int test_y = (int)(game_context->world_y + sinf(test_angle) * radius);
                     
-                    // Keep within terrain bounds with bigger margin
-                    if(test_x >= 15 && test_x < game_context->chart_width - 15 &&
-                       test_y >= 15 && test_y < game_context->chart_height - 15) {
-                        
-                        // Check for open water in a 10x10 area around this position
-                        bool has_open_water = true;
-                        for(int dy = -5; dy <= 5 && has_open_water; dy++) {
-                            for(int dx = -5; dx <= 5 && has_open_water; dx++) {
-                                int check_x = test_x + dx;
-                                int check_y = test_y + dy;
-                                if(terrain_check_collision(game_context->terrain, check_x, check_y)) {
-                                    has_open_water = false;
-                                }
+                    // Update chunk manager for this test position
+                    chunk_manager_update(game_context->chunk_manager, (float)test_x, (float)test_y);
+                    
+                    // Check for open water in a 10x10 area around this position
+                    bool has_open_water = true;
+                    for(int dy = -5; dy <= 5 && has_open_water; dy++) {
+                        for(int dx = -5; dx <= 5 && has_open_water; dx++) {
+                            int check_x = test_x + dx;
+                            int check_y = test_y + dy;
+                            if(chunk_manager_check_collision(game_context->chunk_manager, check_x, check_y)) {
+                                has_open_water = false;
                             }
                         }
-                        
-                        if(has_open_water) {
-                            game_context->world_x = test_x;
-                            game_context->world_y = test_y;
-                            found_water = true;
-                        }
+                    }
+                    
+                    if(has_open_water) {
+                        game_context->world_x = test_x;
+                        game_context->world_y = test_y;
+                        found_water = true;
                     }
                 }
             }
@@ -523,14 +578,19 @@ static void game_start(GameManager* game_manager, void* ctx) {
 static void game_stop(void* ctx) {
     GameContext* game_context = ctx;
     
-    // Clean up terrain system
-    if(game_context->terrain) {
-        terrain_manager_free(game_context->terrain);
+    // Clean up chunk manager (includes terrain cleanup)
+    if(game_context->chunk_manager) {
+        chunk_manager_free(game_context->chunk_manager);
     }
     
-    // Clean up sonar chart
+    // Clean up advanced sonar chart
     if(game_context->sonar_chart) {
-        free(game_context->sonar_chart);
+        sonar_chart_free(game_context->sonar_chart);
+    }
+    
+    // Clean up raycaster
+    if(game_context->raycaster) {
+        raycaster_free(game_context->raycaster);
     }
 }
 
