@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <furi.h>
 
 // Diamond-square algorithm constants (adapted for uint8_t)
 #define MAX_DELTA 80        // Max random variation (0-255 scale)
@@ -76,11 +77,11 @@ static void terrain_init_corners(TerrainManager* terrain) {
     int step = terrain->width - 1;
     terrain_srand(terrain->seed);
     
-    // Initialize corner values for single chunk
-    terrain_set_height(terrain, 0, 0, terrain_rand());
-    terrain_set_height(terrain, step, 0, terrain_rand());
-    terrain_set_height(terrain, 0, step, terrain_rand());
-    terrain_set_height(terrain, step, step, terrain_rand());
+    // Initialize corner values biased toward land (150-200 range for better land/water balance)
+    terrain_set_height(terrain, 0, 0, 150 + (terrain_rand() % 50));
+    terrain_set_height(terrain, step, 0, 150 + (terrain_rand() % 50));
+    terrain_set_height(terrain, 0, step, 150 + (terrain_rand() % 50));
+    terrain_set_height(terrain, step, step, 150 + (terrain_rand() % 50));
 }
 
 static void terrain_diamond_step(TerrainManager* terrain, int x, int y, int size, int16_t roughness) {
@@ -170,13 +171,28 @@ void terrain_generate_diamond_square(TerrainManager* terrain) {
 }
 
 void terrain_apply_elevation_threshold(TerrainManager* terrain) {
+    uint16_t land_count = 0;
+    uint8_t min_height = 255, max_height = 0;
+    
     for(int y = 0; y < terrain->height; y++) {
         for(int x = 0; x < terrain->width; x++) {
             int idx = y * terrain->width + x;
             uint8_t height = terrain->height_map[idx];
+            
+            // Track statistics
+            if(height < min_height) min_height = height;
+            if(height > max_height) max_height = height;
+            
             terrain->collision_map[idx] = (height > terrain->elevation_threshold);
+            if(terrain->collision_map[idx]) land_count++;
         }
     }
+    
+    // Log terrain statistics for debugging
+    uint16_t total_pixels = terrain->width * terrain->height;
+    uint16_t land_percentage = (land_count * 100) / total_pixels;
+    FURI_LOG_D("Terrain", "Chunk stats: %d%% land (%d/%d), heights: %d-%d, threshold: %d", 
+               land_percentage, land_count, total_pixels, min_height, max_height, terrain->elevation_threshold);
     
     // Apply despeckle filter - remove isolated land pixels
     bool* temp_map = malloc(terrain->width * terrain->height * sizeof(bool));
@@ -190,11 +206,10 @@ void terrain_apply_elevation_threshold(TerrainManager* terrain) {
             if(temp_map[idx]) { // If this is land
                 bool has_neighbor = false;
                 
-                // Check 4-connected neighbors
+                // Check 8-connected neighbors (less aggressive than 4-connected)
                 for(int dy = -1; dy <= 1; dy++) {
                     for(int dx = -1; dx <= 1; dx++) {
                         if(dx == 0 && dy == 0) continue;
-                        if(abs(dx) + abs(dy) > 1) continue; // Only 4-connected
                         
                         int nx = x + dx;
                         int ny = y + dy;

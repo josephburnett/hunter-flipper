@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <furi.h>
 
 // Chunk coordinate conversion
 ChunkCoord world_to_chunk_coord(float world_x, float world_y) {
@@ -153,12 +154,14 @@ TerrainChunk* chunk_manager_load_chunk(ChunkManager* manager, ChunkCoord coord) 
     chunk->generation_seed = chunk_coord_hash(coord);
     
     // Create terrain for this chunk
-    chunk->terrain = terrain_manager_alloc(chunk->generation_seed, 128); // 128 = middle threshold
+    chunk->terrain = terrain_manager_alloc(chunk->generation_seed, 100); // 100 = lower threshold for more land
     chunk->is_loaded = (chunk->terrain != NULL);
     
     if(chunk->is_loaded) {
         manager->chunks_loaded_this_frame++;
         manager->generation_time_ms += furi_get_tick() - start_time;
+        FURI_LOG_D("ChunkMgr", "Loaded chunk (%d,%d) with seed 0x%08lX in %lu ms", 
+                   coord.chunk_x, coord.chunk_y, chunk->generation_seed, furi_get_tick() - start_time);
     }
     
     return chunk;
