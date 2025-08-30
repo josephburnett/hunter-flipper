@@ -1,0 +1,29 @@
+# Test Makefile - builds tests using system GCC instead of Flipper toolchain
+CC=gcc
+CFLAGS=-Wall -Wextra -std=c99 -g -I. -I./engine
+LIBS=-lm
+
+# Mock Flipper APIs for testing
+MOCK_OBJS=mock_furi.o
+
+# Core source files needed for testing
+CORE_OBJS=terrain.o chunk_manager.o raycaster.o sonar_chart.o
+
+test_first_ping: test_first_ping.o $(CORE_OBJS) $(MOCK_OBJS)
+	$(CC) -o $@ $^ $(LIBS)
+
+test_terrain: test_terrain.o $(CORE_OBJS) $(MOCK_OBJS)  
+	$(CC) -o $@ $^ $(LIBS)
+
+# Mock Flipper functions
+mock_furi.o: mock_furi.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Core objects with mocked Flipper calls
+%.o: %.c
+	$(CC) $(CFLAGS) -DTEST_BUILD -c -o $@ $<
+
+clean:
+	rm -f *.o test_first_ping test_terrain
+
+.PHONY: clean

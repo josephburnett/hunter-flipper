@@ -2,7 +2,11 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef TEST_BUILD
+#include "mock_furi.h"
+#else
 #include <furi.h>
+#endif
 
 // Chunk coordinate conversion
 ChunkCoord world_to_chunk_coord(float world_x, float world_y) {

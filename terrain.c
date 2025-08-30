@@ -2,7 +2,11 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef TEST_BUILD
+#include "mock_furi.h"
+#else
 #include <furi.h>
+#endif
 
 // Diamond-square algorithm constants (adapted for uint8_t)
 #define MAX_DELTA 80        // Max random variation (0-255 scale)
@@ -77,11 +81,11 @@ static void terrain_init_corners(TerrainManager* terrain) {
     int step = terrain->width - 1;
     terrain_srand(terrain->seed);
     
-    // Initialize corner values biased toward land (150-200 range for better land/water balance)
-    terrain_set_height(terrain, 0, 0, 150 + (terrain_rand() % 50));
-    terrain_set_height(terrain, step, 0, 150 + (terrain_rand() % 50));
-    terrain_set_height(terrain, 0, step, 150 + (terrain_rand() % 50));
-    terrain_set_height(terrain, step, step, 150 + (terrain_rand() % 50));
+    // Initialize corner values with more balanced distribution (70-180 range)
+    terrain_set_height(terrain, 0, 0, 70 + (terrain_rand() % 110));
+    terrain_set_height(terrain, step, 0, 70 + (terrain_rand() % 110));
+    terrain_set_height(terrain, 0, step, 70 + (terrain_rand() % 110));
+    terrain_set_height(terrain, step, step, 70 + (terrain_rand() % 110));
 }
 
 static void terrain_diamond_step(TerrainManager* terrain, int x, int y, int size, int16_t roughness) {

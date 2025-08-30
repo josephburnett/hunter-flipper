@@ -1,5 +1,9 @@
 #pragma once
+#ifdef TEST_BUILD
+#include "../mock_furi.h"
+#else
 #include <furi.h>
+#endif
 #include "game_engine.h"
 #include "level.h"
 #include "entity.h"
