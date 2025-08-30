@@ -47,12 +47,31 @@ void canvas_draw_disc(void* canvas, int x, int y, int radius) {
     printf("Draw disc at (%d,%d) radius %d\n", x, y, radius);
 }
 
-void canvas_printf(void* canvas, int x, int y, const char* format, ...) {
+void canvas_printf(void* canvas, uint8_t x, uint8_t y, const char* format, ...) {
     (void)canvas;
-    printf("Text at (%d,%d): ", x, y);
+    // Silent for tests - just consume the args
+    (void)x; (void)y;
     va_list args;
     va_start(args, format);
-    vprintf(format, args);
     va_end(args);
-    printf("\n");
+}
+
+// Additional canvas functions
+size_t canvas_printf_width(void* canvas, const char* format, ...) {
+    (void)canvas;
+    va_list args;
+    va_start(args, format);
+    va_end(args);
+    return 10; // Mock width
+}
+
+void canvas_printf_aligned(void* canvas, uint8_t x, uint8_t y, int h, int v, const char* format, ...) {
+    (void)canvas; (void)x; (void)y; (void)h; (void)v;
+    va_list args;
+    va_start(args, format);
+    va_end(args);
+}
+
+void canvas_draw_str_aligned_outline(void* canvas, uint8_t x, uint8_t y, int h, int v, const char* cstr) {
+    (void)canvas; (void)x; (void)y; (void)h; (void)v; (void)cstr;
 }

@@ -149,7 +149,7 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
                 game_context->ping_active = true;
                 game_context->ping_x = game_context->world_x;
                 game_context->ping_y = game_context->world_y;
-                game_context->ping_radius = 0;
+                game_context->ping_radius = 2; // Start with radius 2 to discover immediate surroundings
                 game_context->ping_timer = furi_get_tick();
             }
         } else {
@@ -191,24 +191,33 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
             // Add discoveries to sonar chart
             for(uint16_t i = 0; i < pattern->direction_count; i++) {
                 RayResult* result = &results[i];
-                if(result->ray_complete && result->distance <= game_context->ping_radius) {
-                    // Add terrain or water point to sonar chart
-                    sonar_chart_add_point(game_context->sonar_chart, 
-                                         result->hit_x, result->hit_y, result->hit_terrain);
-                    
-                    // If ray hit terrain before max radius, also add intermediate water points
-                    if(result->hit_terrain && result->distance > 1) {
+                if(result->ray_complete) {
+                    // If ray hit terrain within ping radius, add it
+                    if(result->hit_terrain && result->distance <= game_context->ping_radius) {
+                        sonar_chart_add_point(game_context->sonar_chart, 
+                                             result->hit_x, result->hit_y, true);
+                        
+                        // Add intermediate water points along the ray
                         int16_t start_x = (int16_t)game_context->ping_x;
                         int16_t start_y = (int16_t)game_context->ping_y;
                         int16_t dx = result->hit_x - start_x;
                         int16_t dy = result->hit_y - start_y;
                         
                         // Add water points along the ray path (every few steps)
-                        for(uint16_t step = 0; step < result->distance; step += 3) {
+                        for(uint16_t step = 3; step < result->distance; step += 3) {
                             int16_t water_x = start_x + (dx * step) / result->distance;
                             int16_t water_y = start_y + (dy * step) / result->distance;
                             sonar_chart_add_point(game_context->sonar_chart, water_x, water_y, false);
                         }
+                    } else if(!result->hit_terrain || result->distance > game_context->ping_radius) {
+                        // Ray extends beyond ping radius or didn't hit terrain
+                        // Add water point at the edge of ping radius
+                        int16_t start_x = (int16_t)game_context->ping_x;
+                        int16_t start_y = (int16_t)game_context->ping_y;
+                        float angle = raycaster_direction_to_angle(pattern->directions[i]);
+                        int16_t edge_x = start_x + (int16_t)(cosf(angle) * game_context->ping_radius);
+                        int16_t edge_y = start_y + (int16_t)(sinf(angle) * game_context->ping_radius);
+                        sonar_chart_add_point(game_context->sonar_chart, edge_x, edge_y, false);
                     }
                 }
             }

@@ -11,8 +11,8 @@
 // Chunk coordinate conversion
 ChunkCoord world_to_chunk_coord(float world_x, float world_y) {
     ChunkCoord coord;
-    coord.chunk_x = (int)floorf(world_x / (CHUNK_SIZE - 1));
-    coord.chunk_y = (int)floorf(world_y / (CHUNK_SIZE - 1));
+    coord.chunk_x = (int)floorf(world_x / CHUNK_SIZE);
+    coord.chunk_y = (int)floorf(world_y / CHUNK_SIZE);
     return coord;
 }
 
@@ -257,8 +257,8 @@ bool chunk_manager_check_collision(ChunkManager* manager, int world_x, int world
     
     // Convert world coordinates to local chunk coordinates
     ChunkCoord coord = world_to_chunk_coord((float)world_x, (float)world_y);
-    int local_x = world_x - (coord.chunk_x * (CHUNK_SIZE - 1));
-    int local_y = world_y - (coord.chunk_y * (CHUNK_SIZE - 1));
+    int local_x = world_x - (coord.chunk_x * CHUNK_SIZE);
+    int local_y = world_y - (coord.chunk_y * CHUNK_SIZE);
     
     return terrain_check_collision(chunk->terrain, local_x, local_y);
 }

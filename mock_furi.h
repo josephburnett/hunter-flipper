@@ -24,7 +24,7 @@ void canvas_draw_dot(Canvas* canvas, int x, int y);
 void canvas_draw_circle(Canvas* canvas, int x, int y, int radius);
 void canvas_draw_line(Canvas* canvas, float x1, float y1, float x2, float y2);
 void canvas_draw_disc(Canvas* canvas, int x, int y, int radius);
-void canvas_printf(Canvas* canvas, int x, int y, const char* format, ...);
+void canvas_printf(Canvas* canvas, uint8_t x, uint8_t y, const char* format, ...);
 
 #else
 // Normal Flipper build - use real furi.h

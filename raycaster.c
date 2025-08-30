@@ -73,6 +73,8 @@ void raycaster_init_sonar_patterns(Raycaster* raycaster) {
 void raycaster_bresham_init(Raycaster* raycaster, int16_t x0, int16_t y0, int16_t x1, int16_t y1) {
     raycaster->bresham_x = x0;
     raycaster->bresham_y = y0;
+    raycaster->bresham_x1 = x1;
+    raycaster->bresham_y1 = y1;
     
     raycaster->bresham_dx = abs(x1 - x0);
     raycaster->bresham_dy = abs(y1 - y0);
@@ -93,7 +95,9 @@ bool raycaster_bresham_step(Raycaster* raycaster, int16_t* out_x, int16_t* out_y
     *out_x = raycaster->bresham_x;
     *out_y = raycaster->bresham_y;
     
-    if(raycaster->bresham_dx == 0 && raycaster->bresham_dy == 0) {
+    // Check if we've reached the target position
+    if(raycaster->bresham_x == raycaster->bresham_x1 && 
+       raycaster->bresham_y == raycaster->bresham_y1) {
         return false; // Ray complete
     }
     
@@ -102,13 +106,11 @@ bool raycaster_bresham_step(Raycaster* raycaster, int16_t* out_x, int16_t* out_y
     if(e2 > -raycaster->bresham_dy) {
         raycaster->bresham_err -= raycaster->bresham_dy;
         raycaster->bresham_x += raycaster->bresham_step_x;
-        raycaster->bresham_dx--;
     }
     
     if(e2 < raycaster->bresham_dx) {
         raycaster->bresham_err += raycaster->bresham_dx;
         raycaster->bresham_y += raycaster->bresham_step_y;
-        raycaster->bresham_dy--;
     }
     
     return true;
@@ -176,14 +178,20 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
     uint16_t hits = 0;
     
     for(uint16_t i = 0; i < pattern->direction_count; i++) {
+        // Adaptive quality: skip rays if we're over budget (moved before ray casting)
+        if(raycaster->current_quality_level > 0 && (i % (raycaster->current_quality_level + 1)) != 0) {
+            // Initialize skipped result as water at max distance
+            results[i].ray_complete = true;
+            results[i].hit_terrain = false;
+            results[i].distance = pattern->max_radius;
+            results[i].hit_x = start_x;
+            results[i].hit_y = start_y;
+            continue;
+        }
+        
         if(raycaster_cast_ray(raycaster, start_x, start_y, pattern->directions[i], 
                               pattern->max_radius, &results[i], collision_func, context)) {
             hits++;
-        }
-        
-        // Adaptive quality: skip rays if we're over budget
-        if(raycaster->current_quality_level > 0 && (i % (raycaster->current_quality_level + 1)) != 0) {
-            continue;
         }
     }
     
@@ -239,7 +247,7 @@ Raycaster* raycaster_alloc(void) {
     raycaster_init_sonar_patterns(raycaster);
     
     // Initialize performance settings
-    raycaster->current_quality_level = 1; // Start at medium quality
+    raycaster->current_quality_level = 0; // Start at full quality (cast all rays)
     raycaster->frame_time_budget_ms = 3;  // 3ms budget
     raycaster->last_performance_check = 0;
     

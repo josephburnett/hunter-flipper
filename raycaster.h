@@ -45,6 +45,7 @@ typedef struct {
     int16_t bresham_dx, bresham_dy;
     int16_t bresham_err;
     int16_t bresham_step_x, bresham_step_y;
+    int16_t bresham_x1, bresham_y1;  // Target position for termination check
     bool bresham_steep;
     
     // Performance monitoring
