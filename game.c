@@ -8,6 +8,151 @@ static const EntityDescription submarine_desc;
 static const EntityDescription torpedo_desc;
 static const LevelBehaviour level;
 
+/****** Fading Sonar Chart System - Optimized ******/
+
+// Simple hash function for coordinates
+static uint32_t sonar_hash(int x, int y) {
+    return ((uint32_t)x * 73 + (uint32_t)y * 151) & (SONAR_HASH_SIZE - 1);
+}
+
+SonarChart* sonar_chart_alloc(void) {
+    SonarChart* chart = malloc(sizeof(SonarChart));
+    if(!chart) return NULL;
+    
+    // Allocate hash table: 256 buckets * (4 points * 8 bytes + 1 byte count) = ~8KB
+    chart->buckets = calloc(SONAR_HASH_SIZE, sizeof(SonarBucket));
+    if(!chart->buckets) {
+        free(chart);
+        return NULL;
+    }
+    
+    chart->last_cleanup_time = 0;
+    return chart;
+}
+
+void sonar_chart_free(SonarChart* chart) {
+    if(!chart) return;
+    if(chart->buckets) free(chart->buckets);
+    free(chart);
+}
+
+void sonar_chart_add_point(SonarChart* chart, int x, int y, uint32_t current_time) {
+    if(!chart || !chart->buckets) return;
+    
+    // Bounds check for 16-bit coordinates
+    if(x < -32767 || x > 32767 || y < -32767 || y > 32767) return;
+    
+    uint32_t hash = sonar_hash(x, y);
+    if(hash >= SONAR_HASH_SIZE) return; // Safety check
+    
+    SonarBucket* bucket = &chart->buckets[hash];
+    
+    // Check if point already exists in bucket
+    for(uint8_t i = 0; i < bucket->count && i < SONAR_MAX_PER_BUCKET; i++) {
+        if(bucket->points[i].x == x && bucket->points[i].y == y) {
+            bucket->points[i].discovered_time = current_time;
+            return;
+        }
+    }
+    
+    // Add new point if bucket has space
+    if(bucket->count < SONAR_MAX_PER_BUCKET) {
+        bucket->points[bucket->count].x = (int16_t)x;
+        bucket->points[bucket->count].y = (int16_t)y;
+        bucket->points[bucket->count].discovered_time = current_time;
+        bucket->count++;
+    } else {
+        // Replace oldest point in bucket
+        uint32_t oldest_time = current_time;
+        uint8_t oldest_idx = 0;
+        for(uint8_t i = 0; i < SONAR_MAX_PER_BUCKET; i++) {
+            if(bucket->points[i].discovered_time < oldest_time) {
+                oldest_time = bucket->points[i].discovered_time;
+                oldest_idx = i;
+            }
+        }
+        if(oldest_idx < SONAR_MAX_PER_BUCKET) {
+            bucket->points[oldest_idx].x = (int16_t)x;
+            bucket->points[oldest_idx].y = (int16_t)y;
+            bucket->points[oldest_idx].discovered_time = current_time;
+        }
+    }
+}
+
+bool sonar_chart_is_discovered(SonarChart* chart, int x, int y, uint32_t current_time) {
+    if(!chart || !chart->buckets) return false;
+    
+    // Bounds check
+    if(x < -32767 || x > 32767 || y < -32767 || y > 32767) return false;
+    
+    uint32_t hash = sonar_hash(x, y);
+    if(hash >= SONAR_HASH_SIZE) return false;
+    
+    SonarBucket* bucket = &chart->buckets[hash];
+    
+    for(uint8_t i = 0; i < bucket->count && i < SONAR_MAX_PER_BUCKET; i++) {
+        if(bucket->points[i].x == x && bucket->points[i].y == y) {
+            // Check if point hasn't faded yet
+            if(current_time - bucket->points[i].discovered_time <= SONAR_FADE_DURATION_MS) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void sonar_chart_cleanup_old_points(SonarChart* chart, uint32_t current_time) {
+    if(!chart || !chart->buckets) return;
+    
+    // Only cleanup every 2 seconds to reduce CPU load
+    if(current_time - chart->last_cleanup_time < 2000) return;
+    chart->last_cleanup_time = current_time;
+    
+    // Clean up every 4th bucket each time (spread the work over time)
+    static uint32_t cleanup_offset = 0;
+    uint32_t buckets_per_cleanup = SONAR_HASH_SIZE / 4;
+    if(buckets_per_cleanup == 0) buckets_per_cleanup = 1;
+    
+    for(uint32_t i = 0; i < buckets_per_cleanup; i++) {
+        uint32_t bucket_idx = (cleanup_offset + i) % SONAR_HASH_SIZE;
+        if(bucket_idx >= SONAR_HASH_SIZE) continue;
+        
+        SonarBucket* bucket = &chart->buckets[bucket_idx];
+        
+        uint8_t write_idx = 0;
+        for(uint8_t read_idx = 0; read_idx < bucket->count && read_idx < SONAR_MAX_PER_BUCKET; read_idx++) {
+            // Keep points that haven't faded
+            if(current_time - bucket->points[read_idx].discovered_time <= SONAR_FADE_DURATION_MS) {
+                if(write_idx != read_idx && write_idx < SONAR_MAX_PER_BUCKET) {
+                    bucket->points[write_idx] = bucket->points[read_idx];
+                }
+                if(write_idx < SONAR_MAX_PER_BUCKET) write_idx++;
+            }
+        }
+        bucket->count = write_idx;
+    }
+    
+    cleanup_offset = (cleanup_offset + buckets_per_cleanup) % SONAR_HASH_SIZE;
+}
+
+float sonar_chart_get_fade_level(SonarChart* chart, int x, int y, uint32_t current_time) {
+    if(!chart || !chart->buckets) return 0.0f;
+    
+    uint32_t hash = sonar_hash(x, y);
+    SonarBucket* bucket = &chart->buckets[hash];
+    
+    for(uint8_t i = 0; i < bucket->count; i++) {
+        if(bucket->points[i].x == x && bucket->points[i].y == y) {
+            uint32_t age = current_time - bucket->points[i].discovered_time;
+            if(age <= SONAR_FADE_DURATION_MS) {
+                // Return fade level: 1.0 = fully visible, 0.0 = fully faded
+                return 1.0f - ((float)age / (float)SONAR_FADE_DURATION_MS);
+            }
+        }
+    }
+    return 0.0f;
+}
+
 /****** Camera/Coordinate System ******/
 
 typedef struct {
@@ -113,6 +258,9 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     // Handle input first
     handle_input(manager, game_context);
     
+    // Cleanup old sonar points periodically (every frame is fine, it's fast)
+    sonar_chart_cleanup_old_points(game_context->sonar_chart, furi_get_tick());
+    
     InputState input = game_manager_input_get(manager);
     
     // Handle movement controls
@@ -132,6 +280,10 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     }
     if(input.held & GameKeyDown) {
         game_context->velocity -= game_context->acceleration;
+        if(game_context->velocity < 0) game_context->velocity = 0;
+    } else if(!(input.held & GameKeyUp)) {
+        // Add slight deceleration when not actively accelerating for realistic momentum
+        game_context->velocity -= game_context->acceleration * 0.3f;
         if(game_context->velocity < 0) game_context->velocity = 0;
     }
     
@@ -163,23 +315,34 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     // Update ping with terrain detection
     if(game_context->ping_active) {
         uint32_t current_time = furi_get_tick();
-        if(current_time - game_context->ping_timer > 50) { // Update every 50ms
+        if(current_time - game_context->ping_timer > 60) { // Update every 60ms for better performance
             game_context->ping_radius += 2;
             game_context->ping_timer = current_time;
             
-            // Perform raycasting to detect terrain
+            // Perform smart raycasting with adaptive density
             if(game_context->terrain && game_context->sonar_chart) {
-                for(float angle = 0; angle < 2 * 3.14159f; angle += 0.1f) {
+                uint32_t current_time = furi_get_tick();
+                
+                // Adaptive ray density based on ping radius
+                float angle_step;
+                if(game_context->ping_radius <= 15) {
+                    // Close range: dense rays for detail
+                    angle_step = 0.1f;
+                } else if(game_context->ping_radius <= 30) {
+                    // Medium range: balanced density
+                    angle_step = 0.15f;
+                } else {
+                    // Long range: sparse rays for coverage
+                    angle_step = 0.2f;
+                }
+                
+                // Cast rays with adaptive density
+                for(float angle = 0; angle < 2 * 3.14159f; angle += angle_step) {
                     int ray_x = (int)(game_context->ping_x + cosf(angle) * game_context->ping_radius);
                     int ray_y = (int)(game_context->ping_y + sinf(angle) * game_context->ping_radius);
                     
-                    if(ray_x >= 0 && ray_x < game_context->chart_width && 
-                       ray_y >= 0 && ray_y < game_context->chart_height) {
-                        
-                        // Mark as discovered in sonar chart
-                        int chart_idx = ray_y * game_context->chart_width + ray_x;
-                        game_context->sonar_chart[chart_idx] = true;
-                    }
+                    // Add to fading sonar chart
+                    sonar_chart_add_point(game_context->sonar_chart, ray_x, ray_y, current_time);
                 }
             }
             
@@ -228,20 +391,23 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
             for(int world_x = (int)game_context->world_x - sample_radius; 
                 world_x <= (int)game_context->world_x + sample_radius; world_x++) {
                 
-                // Check if this world coordinate is in bounds and discovered
-                if(world_x >= 0 && world_x < game_context->chart_width &&
-                   world_y >= 0 && world_y < game_context->chart_height) {
+                // Check if this world coordinate is discovered and draw with fading
+                uint32_t current_time = furi_get_tick();
+                if(sonar_chart_is_discovered(game_context->sonar_chart, world_x, world_y, current_time) && 
+                   terrain_check_collision(game_context->terrain, world_x, world_y)) {
                     
-                    int chart_idx = world_y * game_context->chart_width + world_x;
-                    if(game_context->sonar_chart[chart_idx] && 
-                       terrain_check_collision(game_context->terrain, world_x, world_y)) {
+                    // Transform world coordinates to screen
+                    ScreenPoint screen = world_to_screen(game_context, world_x, world_y);
+                    
+                    // Only draw if on screen
+                    if(screen.screen_x >= 0 && screen.screen_x < 128 &&
+                       screen.screen_y >= 0 && screen.screen_y < 64) {
                         
-                        // Transform world coordinates to screen
-                        ScreenPoint screen = world_to_screen(game_context, world_x, world_y);
+                        // Get fade level for fading effect (optional visual enhancement)
+                        float fade_level = sonar_chart_get_fade_level(game_context->sonar_chart, world_x, world_y, current_time);
                         
-                        // Only draw if on screen
-                        if(screen.screen_x >= 0 && screen.screen_x < 128 &&
-                           screen.screen_y >= 0 && screen.screen_y < 64) {
+                        // For now, just draw the dot (later we could implement fading visuals)
+                        if(fade_level > 0.3f) { // Only show if not too faded
                             canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
                         }
                     }
@@ -424,13 +590,14 @@ static void game_start(GameManager* game_manager, void* ctx) {
     // Initialize terrain system first
     game_context->terrain = terrain_manager_alloc(12345, 0.5f); // seed=12345, elevation=0.5
     
-    // Initialize sonar chart (same size as screen for now)
-    game_context->chart_width = 128;
-    game_context->chart_height = 64;
-    size_t chart_size = game_context->chart_width * game_context->chart_height;
-    game_context->sonar_chart = malloc(chart_size * sizeof(bool));
-    if(game_context->sonar_chart) {
-        memset(game_context->sonar_chart, 0, chart_size * sizeof(bool));
+    // Initialize optimized fading sonar chart
+    game_context->sonar_chart = sonar_chart_alloc();
+    if(!game_context->sonar_chart) {
+        // Failed to allocate sonar chart - clean up and exit
+        if(game_context->terrain) {
+            terrain_manager_free(game_context->terrain);
+        }
+        return;
     }
     
     // Set submarine screen position (always center)
@@ -469,9 +636,8 @@ static void game_start(GameManager* game_manager, void* ctx) {
                     int test_x = (int)(game_context->world_x + cosf(test_angle) * radius);
                     int test_y = (int)(game_context->world_y + sinf(test_angle) * radius);
                     
-                    // Keep within terrain bounds with bigger margin
-                    if(test_x >= 15 && test_x < game_context->chart_width - 15 &&
-                       test_y >= 15 && test_y < game_context->chart_height - 15) {
+                    // Keep reasonable bounds for spawn area (no longer tied to chart bounds)
+                    if(test_x >= 15 && test_x < 1000 && test_y >= 15 && test_y < 1000) {
                         
                         // Check for open water in a 10x10 area around this position
                         bool has_open_water = true;
@@ -511,10 +677,10 @@ static void game_start(GameManager* game_manager, void* ctx) {
     game_context->back_press_start = 0;
     game_context->back_long_press = false;
     
-    // Game settings
-    game_context->max_velocity = 0.1f;
-    game_context->turn_rate = 0.002f;
-    game_context->acceleration = 0.002f;
+    // Game settings - improved for better responsiveness
+    game_context->max_velocity = 0.25f;   // 2.5x faster top speed
+    game_context->turn_rate = 0.006f;     // 3x faster turning  
+    game_context->acceleration = 0.008f;  // 4x faster acceleration
     
     // Add level to the game
     game_manager_add_level(game_manager, &level);
@@ -529,9 +695,7 @@ static void game_stop(void* ctx) {
     }
     
     // Clean up sonar chart
-    if(game_context->sonar_chart) {
-        free(game_context->sonar_chart);
-    }
+    sonar_chart_free(game_context->sonar_chart);
 }
 
 const Game game = {
