@@ -81,19 +81,63 @@ TerrainManager* terrain_manager_alloc(uint32_t seed, uint8_t elevation) {
     terrain->height_map[step * terrain->width] = 70 + (terrain_rand() % 110);  // Bottom-left
     terrain->height_map[step * terrain->width + step] = 70 + (terrain_rand() % 110);  // Bottom-right
     
-    // Fill in rest with simple pattern for testing
-    for(int y = 0; y < terrain->height; y++) {
-        for(int x = 0; x < terrain->width; x++) {
-            if(x == 0 || x == step || y == 0 || y == step) {
-                // Edges already set or use average of corners
-                if(terrain->height_map[y * terrain->width + x] == 0) {
-                    terrain->height_map[y * terrain->width + x] = 125; // Middle value
-                }
-            } else {
-                // Interior points - add some variation around middle value
-                terrain->height_map[y * terrain->width + x] = 125 + terrain_rand_range(50);
+    // Proper diamond-square algorithm (simplified version)
+    int size = terrain->width;
+    int16_t roughness = 80; // MAX_DELTA
+    
+    while(size > 1) {
+        int half = size / 2;
+        
+        // Diamond step - fill in diamond centers
+        for(int y = half; y < terrain->height; y += size) {
+            for(int x = half; x < terrain->width; x += size) {
+                // Get corner values
+                uint8_t tl = y - half >= 0 && x - half >= 0 ? terrain->height_map[(y - half) * terrain->width + (x - half)] : 0;
+                uint8_t tr = y - half >= 0 && x + half < terrain->width ? terrain->height_map[(y - half) * terrain->width + (x + half)] : 0;
+                uint8_t bl = y + half < terrain->height && x - half >= 0 ? terrain->height_map[(y + half) * terrain->width + (x - half)] : 0;
+                uint8_t br = y + half < terrain->height && x + half < terrain->width ? terrain->height_map[(y + half) * terrain->width + (x + half)] : 0;
+                
+                int16_t avg = (tl + tr + bl + br) / 4;
+                int16_t offset = terrain_rand_range(roughness);
+                int16_t new_height = avg + offset;
+                
+                // Clamp to 0-255
+                if(new_height < 0) new_height = 0;
+                if(new_height > 255) new_height = 255;
+                
+                terrain->height_map[y * terrain->width + x] = (uint8_t)new_height;
             }
         }
+        
+        // Square step - fill in square centers
+        for(int y = 0; y < terrain->height; y += half) {
+            for(int x = (y / half) % 2 == 0 ? half : 0; x < terrain->width; x += size) {
+                int16_t total = 0;
+                int count = 0;
+                
+                // Sample neighboring points
+                if(x - half >= 0) { total += terrain->height_map[y * terrain->width + (x - half)]; count++; }
+                if(x + half < terrain->width) { total += terrain->height_map[y * terrain->width + (x + half)]; count++; }
+                if(y - half >= 0) { total += terrain->height_map[(y - half) * terrain->width + x]; count++; }
+                if(y + half < terrain->height) { total += terrain->height_map[(y + half) * terrain->width + x]; count++; }
+                
+                if(count > 0) {
+                    int16_t avg = total / count;
+                    int16_t offset = terrain_rand_range(roughness);
+                    int16_t new_height = avg + offset;
+                    
+                    // Clamp to 0-255
+                    if(new_height < 0) new_height = 0;
+                    if(new_height > 255) new_height = 255;
+                    
+                    terrain->height_map[y * terrain->width + x] = (uint8_t)new_height;
+                }
+            }
+        }
+        
+        size = half;
+        roughness = roughness / 2; // ROUGHNESS_DECAY
+        if(roughness < 1) roughness = 1;
     }
     
     // Apply elevation threshold

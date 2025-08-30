@@ -157,8 +157,8 @@ TerrainChunk* chunk_manager_load_chunk(ChunkManager* manager, ChunkCoord coord) 
     // Generate terrain seed based on chunk coordinates
     chunk->generation_seed = chunk_coord_hash(coord);
     
-    // Create terrain for this chunk
-    chunk->terrain = terrain_manager_alloc(chunk->generation_seed, 100); // 100 = lower threshold for more land
+    // Create terrain for this chunk  
+    chunk->terrain = terrain_manager_alloc(chunk->generation_seed, 90); // 90 = lower threshold for more water
     chunk->is_loaded = (chunk->terrain != NULL);
     
     if(chunk->is_loaded) {

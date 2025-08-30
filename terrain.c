@@ -43,6 +43,11 @@ TerrainManager* terrain_manager_alloc(uint32_t seed, uint8_t elevation) {
     terrain->height_map = malloc(map_size * sizeof(uint8_t));  // 4x smaller!
     terrain->collision_map = malloc(map_size * sizeof(bool));
     
+    // Initialize height map to zero (malloc doesn't guarantee this)
+    if(terrain->height_map) {
+        memset(terrain->height_map, 0, map_size * sizeof(uint8_t));
+    }
+    
     if(!terrain->height_map || !terrain->collision_map) {
         terrain_manager_free(terrain);
         return NULL;
@@ -152,25 +157,26 @@ void terrain_generate_diamond_square(TerrainManager* terrain) {
     int size = terrain->width;
     int16_t roughness = MAX_DELTA;
     
-    while(size >= 3) {
+    while(size > 1) {
         int half = size / 2;
         
-        // Diamond step
-        for(int y = half; y < terrain->height; y += size - 1) {
-            for(int x = half; x < terrain->width; x += size - 1) {
+        // Diamond step - fill in diamond centers
+        for(int y = half; y < terrain->height; y += size) {
+            for(int x = half; x < terrain->width; x += size) {
                 terrain_diamond_step(terrain, x, y, size, roughness);
             }
         }
         
-        // Square step
+        // Square step - fill in square centers
         for(int y = 0; y < terrain->height; y += half) {
-            for(int x = (y / half) % 2 == 0 ? half : 0; x < terrain->width; x += size - 1) {
+            for(int x = (y / half) % 2 == 0 ? half : 0; x < terrain->width; x += size) {
                 terrain_square_step(terrain, x, y, size, roughness);
             }
         }
         
-        size = half + 1;
+        size = half;
         roughness = roughness / ROUGHNESS_DECAY;
+        if(roughness < 1) roughness = 1; // Prevent zero roughness
     }
 }
 
