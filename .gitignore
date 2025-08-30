@@ -21,3 +21,12 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+
+# Test binaries
+test_*
+!test_*.c
+!test_*.h
+test/*/test_*
+!test/*/*.c
+!test/*/*.h
+adhoc

@@ -1,0 +1,2 @@
+- When creating test binaries adhoc, please use a consistent name `adhoc` so I can approve running that tool just once (instead of each different binary name).
+- Do not run `make launch` yourself because it requires Flipperzero to be attached. You can use the other Makefile targets for development.
