@@ -7,12 +7,11 @@
 
 // Furi logging mock
 #define FURI_LOG_NONE  0
-#define FURI_LOG_E     1
-#define FURI_LOG_W     2
-#define FURI_LOG_I     3
-#define FURI_LOG_T     5
-
+#define FURI_LOG_E(tag, format, ...) furi_log_print_format(1, tag, format, ##__VA_ARGS__)
+#define FURI_LOG_W(tag, format, ...) furi_log_print_format(2, tag, format, ##__VA_ARGS__)
+#define FURI_LOG_I(tag, format, ...) furi_log_print_format(3, tag, format, ##__VA_ARGS__)
 #define FURI_LOG_D(tag, format, ...) furi_log_print_format(4, tag, format, ##__VA_ARGS__)
+#define FURI_LOG_T(tag, format, ...) furi_log_print_format(5, tag, format, ##__VA_ARGS__)
 
 uint32_t furi_get_tick(void);
 void furi_log_print_format(int level, const char* tag, const char* format, ...);
