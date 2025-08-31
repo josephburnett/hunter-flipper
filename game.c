@@ -218,8 +218,8 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
                         int16_t dx = result->hit_x - start_x;
                         int16_t dy = result->hit_y - start_y;
                         
-                        // Add water points along the ray path (every few steps)
-                        for(uint16_t step = 3; step < result->distance; step += 3) {
+                        // Add water points along the ray path (reduced frequency to prioritize terrain)
+                        for(uint16_t step = 12; step < result->distance; step += 12) {
                             int16_t water_x = start_x + (dx * step) / result->distance;
                             int16_t water_y = start_y + (dy * step) / result->distance;
                             

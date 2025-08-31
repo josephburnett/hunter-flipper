@@ -1,127 +1,128 @@
-124210140 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 0 total (0 terrain)           
-124210173 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 0 total (0 terrain)           
-124210206 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 0 total (0 terrain)           
-124210242 [I][PING] Ping #0: radius=4, found 0 terrain                                                        
-124210245 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 23 total (0 terrain)          
-124210273 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 23 total (0 terrain)          
-124210313 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (0 terrain)          
-124210340 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (0 terrain)          
-124210375 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                               
-124210378 [I][CHART_ADD] Adding terrain point at (66,51)                                                      
-124210381 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                
-124210386 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                               
-124210389 [I][CHART_ADD] Adding terrain point at (66,52)                                                      
-124210392 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                 
-124210400 [I][RAY_HIT] Ray 29: hit terrain at (66,48) distance=7                                              
-124210403 [I][CHART_ADD] Adding terrain point at (66,48)                                                      
-124210406 [I][CHART_ADD] Created NEW terrain point at (66,48)                                                 
-124210410 [I][RAY_HIT] Ray 30: hit terrain at (66,50) distance=7                                              
-124210413 [I][CHART_ADD] Adding terrain point at (66,50)                                                      
-124210416 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                 
-124210420 [I][RAY_HIT] Ray 31: hit terrain at (66,51) distance=7                                              
-124210423 [I][CHART_ADD] Adding terrain point at (66,51)                                                      
-124210426 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                
-124210430 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)          
-124210435 [I][RENDER_POINT] Point #0: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1 
-124210440 [I][RENDER_TRANSFORM] Point #0: rel=(6,0) sub_pos=(60,51) heading=0.00                              
-124210444 [I][DRAW_DOT] Drawing terrain dot #0 at screen=(70,32) from world=(66,51)                           
-124210457 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                               
-124210461 [I][CHART_ADD] Adding terrain point at (66,51)                                                      
-124210464 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                
-124210468 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                               
-124210471 [I][CHART_ADD] Adding terrain point at (66,52)                                                      
-124210474 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                 
-124210478 [I][RAY_HIT] Ray 2: hit terrain at (66,53) distance=7                                               
-124210481 [I][CHART_ADD] Adding terrain point at (66,53)                                                      
-124210484 [I][CHART_ADD] Created NEW terrain point at (66,53)                                                 
-124210492 [I][RAY_HIT] Ray 28: hit terrain at (66,47) distance=7                                              
-124210495 [I][CHART_ADD] Adding terrain point at (66,47)                                                      
-124210498 [I][CHART_ADD] Created NEW terrain point at (66,47)                                                 
-124210502 [I][RAY_HIT] Ray 29: hit terrain at (66,49) distance=7                                              
-124210505 [I][CHART_ADD] Adding terrain point at (66,49)                                                      
-124210508 [I][CHART_ADD] Created NEW terrain point at (66,49)                                                 
-124210512 [I][RAY_HIT] Ray 30: hit terrain at (66,50) distance=7                                              
-124210515 [I][CHART_ADD] Adding terrain point at (66,50)                                                      
-124210518 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                 
-124210522 [I][RAY_HIT] Ray 31: hit terrain at (66,51) distance=7                                              
-124210525 [I][CHART_ADD] Adding terrain point at (66,51)                                                      
-124210528 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                
-124210532 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)          
-124210537 [I][RENDER_POINT] Point #1: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1 
-124210542 [I][RENDER_TRANSFORM] Point #1: rel=(6,0) sub_pos=(60,51) heading=0.00                              
-124210546 [I][DRAW_DOT] Drawing terrain dot #1 at screen=(70,32) from world=(66,51)                           
-124210560 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                               
-124210563 [I][CHART_ADD] Adding terrain point at (66,51)                                                  
-124210566 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                            
-124210570 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                           
-124210573 [I][CHART_ADD] Adding terrain point at (66,52)                                                  
-124210576 [I][CHART_ADD] Created NEW terrain point at (66,52)                                             
-124210580 [I][RAY_HIT] Ray 2: hit terrain at (66,53) distance=7                                           
-124210583 [I][CHART_ADD] Adding terrain point at (66,53)                                                  
-124210586 [I][CHART_ADD] Created NEW terrain point at (66,53)                                             
-124210591 [I][CHART_ADD] Adding terrain point at (61,61)                                                  
-124210593 [I][CHART_ADD] Created NEW terrain point at (61,61)                                             
-124210601 [I][CHART_ADD] Adding terrain point at (66,45)                                                  
-124210604 [I][CHART_ADD] Created NEW terrain point at (66,45)                                             
-124210608 [I][CHART_ADD] Adding terrain point at (66,47)                                                  
-124210610 [I][CHART_ADD] Created NEW terrain point at (66,47)                                             
-124210614 [I][CHART_ADD] Adding terrain point at (66,49)                                                  
-124210617 [I][CHART_ADD] Created NEW terrain point at (66,49)                                             
-124210621 [I][CHART_ADD] Adding terrain point at (66,50)                                                  
-124210624 [I][CHART_ADD] Created NEW terrain point at (66,50)                                             
-124210628 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)          
-124210633 [I][RENDER_POINT] Point #2: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1 
-124210638 [I][RENDER_TRANSFORM] Point #2: rel=(6,0) sub_pos=(60,51) heading=0.00                          
-124210642 [I][DRAW_DOT] Drawing terrain dot #2 at screen=(70,32) from world=(66,51)                       
-124210657 [I][CHART_ADD] Created NEW terrain point at (66,52)                                             
-124210660 [I][CHART_ADD] Created NEW terrain point at (66,53)                                             
-124210664 [I][CHART_ADD] Created NEW terrain point at (70,57)                                             
-124210668 [I][CHART_ADD] Created NEW terrain point at (63,61)                                             
-124210672 [I][CHART_ADD] Created NEW terrain point at (62,62)                                             
-124210676 [I][CHART_ADD] Created NEW terrain point at (60,63)                                             
-124210680 [I][CHART_ADD] Created NEW terrain point at (57,63)                                             
-124210685 [I][CHART_ADD] Created NEW terrain point at (48,55)                                             
-124210692 [I][CHART_ADD] Created NEW terrain point at (66,42)                                             
-124210696 [I][CHART_ADD] Created NEW terrain point at (66,44)                                             
-124210699 [I][CHART_ADD] Created NEW terrain point at (66,47)                                             
-124210703 [I][CHART_ADD] Created NEW terrain point at (66,49)                                             
-124210706 [I][CHART_ADD] Created NEW terrain point at (66,50)                                             
-124210711 [I][PING] Ping #5: radius=14, found 15 terrain                                                  
-124210714 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)          
-124210719 [I][RENDER_POINT] Point #3: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1 
-124210724 [I][RENDER_TRANSFORM] Point #3: rel=(6,0) sub_pos=(60,51) heading=0.00                          
-124210728 [I][DRAW_DOT] Drawing terrain dot #3 at screen=(70,32) from world=(66,51)                       
-124210743 [I][CHART_ADD] Created NEW terrain point at (66,52)                                             
-124210747 [I][CHART_ADD] Created NEW terrain point at (69,55)                                             
-124210751 [I][CHART_ADD] Created NEW terrain point at (70,58)                                             
-124210755 [I][CHART_ADD] Created NEW terrain point at (64,62)                                             
-124210759 [I][CHART_ADD] Created NEW terrain point at (61,61)                                             
-124210763 [I][CHART_ADD] Created NEW terrain point at (60,63)                                             
-124210767 [I][CHART_ADD] Created NEW terrain point at (57,63)                                             
-124210772 [I][CHART_ADD] Created NEW terrain point at (48,57)                                             
-124210776 [I][CHART_ADD] Created NEW terrain point at (48,54)                                             
-124210780 [I][CHART_ADD] Created NEW terrain point at (47,52)                                             
-124210786 [I][CHART_ADD] Created NEW terrain point at (57,38)                                             
-124210790 [I][CHART_ADD] Created NEW terrain point at (60,37)                                             
-124210794 [I][CHART_ADD] Created NEW terrain point at (62,37)                                             
-124210799 [I][CHART_ADD] Created NEW terrain point at (66,42)                                             
-124210803 [I][CHART_ADD] Created NEW terrain point at (66,45)                                             
-124210806 [I][CHART_ADD] Created NEW terrain point at (66,47)                                             
-124210810 [I][CHART_ADD] Created NEW terrain point at (66,48)                                             
-124210814 [I][CHART_ADD] Created NEW terrain point at (66,50)                                             
-124210818 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)          
-124210823 [I][RENDER_POINT] Point #4: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1 
-124210828 [I][RENDER_TRANSFORM] Point #4: rel=(6,0) sub_pos=(60,51) heading=0.00                          
-124210832 [I][DRAW_DOT] Drawing terrain dot #4 at screen=(70,32) from world=(66,51)                       
-124210848 [I][CHART_ADD] Created NEW terrain point at (66,52)                                             
-124210851 [I][CHART_ADD] Created NEW terrain point at (69,55)                                             
-124210855 [I][CHART_ADD] Created NEW terrain point at (70,58)                                             
-124210860 [I][CHART_ADD] Created NEW terrain point at (64,62)                                             
-124210864 [I][CHART_ADD] Created NEW terrain point at (61,61)                                             
-124210867 [I][CHART_ADD] Created NEW terrain point at (60,63)                                             
-124210872 [I][CHART_ADD] Created NEW terrain point at (57,63)                                             
-124210876 [I][CHART_ADD] Created NEW terrain point at (54,65)                                             
-124210881 [I][CHART_ADD] Created NEW terrain point at (48,57)                                             
-124210885 [I][CHART_ADD] Created NEW terrain point at (48,55)                                             
-124210889 [I][CHART_ADD] Created NEW terrain point at (47,52)                                             
-124210894 [I][CHART_ADD] Created NEW terrain point at (44,46)                                             
+136015623 [I][PING] Ping #0: radius=4, found 0 terrain                                                         
+136015625 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 23 total (0 terrain)           
+136015653 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 23 total (0 terrain)           
+136015696 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (0 terrain)           
+136015720 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (0 terrain)           
+136015756 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                                
+136015759 [I][CHART_ADD] Adding terrain point at (66,51)                                                       
+136015762 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                 
+136015766 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                                
+136015769 [I][CHART_ADD] Adding terrain point at (66,52)                                                       
+136015772 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                  
+136015783 [I][RAY_HIT] Ray 29: hit terrain at (66,48) distance=7                                               
+136015787 [I][CHART_ADD] Adding terrain point at (66,48)                                                       
+136015790 [I][CHART_ADD] Created NEW terrain point at (66,48)                                                  
+136015793 [I][RAY_HIT] Ray 30: hit terrain at (66,50) distance=7                                               
+136015797 [I][CHART_ADD] Adding terrain point at (66,50)                                                       
+136015800 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                  
+136015803 [I][RAY_HIT] Ray 31: hit terrain at (66,51) distance=7                                               
+136015807 [I][CHART_ADD] Adding terrain point at (66,51)                                                       
+136015810 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                 
+136015814 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)           
+136015819 [I][RENDER_POINT] Point #0: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1  
+136015824 [I][RENDER_TRANSFORM] Point #0: rel=(6,0) sub_pos=(60,51) heading=0.00                               
+136015828 [I][DRAW_DOT] Drawing terrain dot #0 at screen=(70,32) from world=(66,51)                            
+136015841 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                                
+136015845 [I][CHART_ADD] Adding terrain point at (66,51)                                                       
+136015848 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                 
+136015852 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                                
+136015855 [I][CHART_ADD] Adding terrain point at (66,52)                                                       
+136015858 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                  
+136015862 [I][RAY_HIT] Ray 2: hit terrain at (66,53) distance=7                                                
+136015865 [I][CHART_ADD] Adding terrain point at (66,53)                                                       
+136015868 [I][CHART_ADD] Created NEW terrain point at (66,53)                                                  
+136015879 [I][RAY_HIT] Ray 28: hit terrain at (66,47) distance=7                                               
+136015882 [I][CHART_ADD] Adding terrain point at (66,47)                                                       
+136015885 [I][CHART_ADD] Created NEW terrain point at (66,47)                                                  
+136015889 [I][RAY_HIT] Ray 29: hit terrain at (66,49) distance=7                                               
+136015892 [I][CHART_ADD] Adding terrain point at (66,49)                                                       
+136015895 [I][CHART_ADD] Created NEW terrain point at (66,49)                                                  
+136015899 [I][RAY_HIT] Ray 30: hit terrain at (66,50) distance=7                                               
+136015902 [I][CHART_ADD] Adding terrain point at (66,50)                                                       
+136015905 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                  
+136015909 [I][RAY_HIT] Ray 31: hit terrain at (66,51) distance=7                                               
+136015912 [I][CHART_ADD] Adding terrain point at (66,51)                                                       
+136015915 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                 
+136015920 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)           
+136015925 [I][RENDER_POINT] Point #1: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1  
+136015930 [I][RENDER_TRANSFORM] Point #1: rel=(6,0) sub_pos=(60,51) heading=0.00                               
+136015934 [I][DRAW_DOT] Drawing terrain dot #1 at screen=(70,32) from world=(66,51)                            
+136015948 [I][RAY_HIT] Ray 0: hit terrain at (66,51) distance=7                                                
+136015952 [I][CHART_ADD] Adding terrain point at (66,51)                                                       
+136015956 [I][CHART_ADD] Found existing point at (66,51) for new point (66,51)                                 
+136015964 [I][RAY_HIT] Ray 1: hit terrain at (66,52) distance=7                                                
+136015968 [I][CHART_ADD] Adding terrain point at (66,52)                                                       
+136015972 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                  
+136015976 [I][RAY_HIT] Ray 2: hit terrain at (66,53) distance=7                                                
+136015979 [I][CHART_ADD] Adding terrain point at (66,53)                                                       
+136015982 [I][CHART_ADD] Created NEW terrain point at (66,53)                                                  
+136015987 [I][CHART_ADD] Adding terrain point at (61,61)                                                       
+136015990 [I][CHART_ADD] Created NEW terrain point at (61,61)                                                  
+136016000 [I][CHART_ADD] Adding terrain point at (66,45)                                                       
+136016003 [I][CHART_ADD] Created NEW terrain point at (66,45)                                                  
+136016006 [I][CHART_ADD] Adding terrain point at (66,47)                                                       
+136016009 [I][CHART_ADD] Created NEW terrain point at (66,47)                                                  
+136016013 [I][CHART_ADD] Adding terrain point at (66,49)                                                       
+136016016 [I][CHART_ADD] Created NEW terrain point at (66,49)                                                  
+136016020 [I][CHART_ADD] Adding terrain point at (66,50)                                                       
+136016023 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                  
+136016028 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)           
+136016032 [I][RENDER_POINT] Point #2: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1  
+136016038 [I][RENDER_TRANSFORM] Point #2: rel=(6,0) sub_pos=(60,51) heading=0.00                               
+136016042 [I][DRAW_DOT] Drawing terrain dot #2 at screen=(70,32) from world=(66,51)                            
+136016057 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                  
+136016061 [I][CHART_ADD] Created NEW terrain point at (66,53)                                                  
+136016065 [I][CHART_ADD] Created NEW terrain point at (70,57)                                                  
+136016069 [I][CHART_ADD] Created NEW terrain point at (63,61)                                                  
+136016074 [I][CHART_ADD] Created NEW terrain point at (62,62)                                                  
+136016078 [I][CHART_ADD] Created NEW terrain point at (60,63)                                                  
+136016082 [I][CHART_ADD] Created NEW terrain point at (57,63)                                                  
+136016088 [I][CHART_ADD] Created NEW terrain point at (48,55)                                                  
+136016096 [I][CHART_ADD] Created NEW terrain point at (66,42)                                                  
+136016100 [I][CHART_ADD] Created NEW terrain point at (66,44)                                                  
+136016103 [I][CHART_ADD] Created NEW terrain point at (66,47)                                                  
+136016107 [I][CHART_ADD] Created NEW terrain point at (66,49)                                                  
+136016111 [I][CHART_ADD] Created NEW terrain point at (66,50)                                                  
+136016116 [I][PING] Ping #5: radius=14, found 15 terrain                                                       
+136016119 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)           
+136016124 [I][RENDER_POINT] Point #3: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1  
+136016129 [I][RENDER_TRANSFORM] Point #3: rel=(6,0) sub_pos=(60,51) heading=0.00                               
+136016133 [I][DRAW_DOT] Drawing terrain dot #3 at screen=(70,32) from world=(66,51)                            
+136016148 [I][CHART_ADD] Created NEW terrain point at (66,52)                                                  
+136016152 [I][CHART_ADD] Created NEW terrain point at (69,55)                                                  
+136016156 [I][CHART_ADD] Created NEW terrain point at (70,58)                                                  
+136016161 [I][CHART_ADD] Created NEW terrain point at (64,62)                                                  
+136016166 [I][CHART_ADD] Created NEW terrain point at (61,61)                                                  
+136016170 [I][CHART_ADD] Created NEW terrain point at (60,63)                                                  
+136016174 [I][CHART_ADD] Created NEW terrain point at (57,63)                                                  
+136016180 [I][CHART_ADD] Created NEW terrain point at (48,57)                                                  
+136016184 [I][CHART_ADD] Created NEW terrain point at (48,54)                                                  
+136016189 [I][CHART_ADD] Created NEW terrain point at (47,52)                                                  
+136016195 [I][CHART_ADD] Created NEW terrain point at (57,38)                                                  
+136016200 [I][CHART_ADD] Created NEW terrain point at (60,37)                                                  
+136016205 [I][CHART_ADD] Created NEW terrain point at (62,37)                                                  
+136016210 [I][CHART_ADD] Created NEW terrain point at (66,42)                                                  
+136016214 [I][CHART_ADD] Created NEW terrain point at (66,45)                                             
+136016218 [I][CHART_ADD] Created NEW terrain point at (66,47)                                             
+136016222 [I][CHART_ADD] Created NEW terrain point at (66,48)                                             
+136016226 [I][CHART_ADD] Created NEW terrain point at (66,50)                                             
+136016230 [I][RENDER_QUERY] Sub at (60,51) queries area (-20,-29) to (140,131): 32 total (1 terrain)           
+136016235 [I][RENDER_POINT] Point #4: world=(66,51) screen=(70,32) fade=0 opacity=255 on_screen=1 will_draw=1  
+136016240 [I][RENDER_TRANSFORM] Point #4: rel=(6,0) sub_pos=(60,51) heading=0.00                          
+136016244 [I][DRAW_DOT] Drawing terrain dot #4 at screen=(70,32) from world=(66,51)                       
+136016261 [I][CHART_ADD] Created NEW terrain point at (66,52)                                             
+136016265 [I][CHART_ADD] Created NEW terrain point at (69,55)                                             
+136016269 [I][CHART_ADD] Created NEW terrain point at (70,58)                                             
+136016274 [I][CHART_ADD] Created NEW terrain point at (64,62)                                             
+136016278 [I][CHART_ADD] Created NEW terrain point at (61,61)                                             
+136016282 [I][CHART_ADD] Created NEW terrain point at (60,63)                                             
+136016287 [I][CHART_ADD] Created NEW terrain point at (57,63)                                             
+136016291 [I][CHART_ADD] Created NEW terrain point at (54,65)                                             
+136016297 [I][CHART_ADD] Created NEW terrain point at (48,57)                                             
+136016301 [I][CHART_ADD] Created NEW terrain point at (48,55)                                             
+136016306 [I][CHART_ADD] Created NEW terrain point at (47,52)                                             
+136016311 [I][CHART_ADD] Created NEW terrain point at (44,46)                                             
+136016318 [I][CHART_ADD] Created NEW terrain point at (57,38)                                             
+136016323 [I][CHART_ADD] Created NEW terrain point at (60,37)                                             
+136016327 [I][CHART_ADD] Created NEW terrain point at (62,37)                                             
+136016332 [I][CHART_ADD] Created NEW terrain point at (66,36)                                             

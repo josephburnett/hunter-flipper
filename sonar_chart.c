@@ -173,18 +173,22 @@ static void sonar_quad_subdivide(SonarChart* chart, SonarQuadNode* node) {
     int16_t mid_x = (node->bounds.min_x + node->bounds.max_x) / 2;
     int16_t mid_y = (node->bounds.min_y + node->bounds.max_y) / 2;
     
-    // Create four child nodes
+    // Create four child nodes - ensure no gaps in coverage
+    // NW: top-left quadrant
     node->children[0] = sonar_quad_create(chart, 
         sonar_bounds_create(node->bounds.min_x, node->bounds.min_y, mid_x, mid_y), 
         node->depth + 1); // NW
+    // NE: top-right quadrant (include mid_x boundary)
     node->children[1] = sonar_quad_create(chart, 
-        sonar_bounds_create(mid_x + 1, node->bounds.min_y, node->bounds.max_x, mid_y), 
+        sonar_bounds_create(mid_x, node->bounds.min_y, node->bounds.max_x, mid_y), 
         node->depth + 1); // NE
+    // SW: bottom-left quadrant (include mid_y boundary)
     node->children[2] = sonar_quad_create(chart, 
-        sonar_bounds_create(node->bounds.min_x, mid_y + 1, mid_x, node->bounds.max_y), 
+        sonar_bounds_create(node->bounds.min_x, mid_y, mid_x, node->bounds.max_y), 
         node->depth + 1); // SW
+    // SE: bottom-right quadrant (include both mid boundaries)
     node->children[3] = sonar_quad_create(chart, 
-        sonar_bounds_create(mid_x + 1, mid_y + 1, node->bounds.max_x, node->bounds.max_y), 
+        sonar_bounds_create(mid_x, mid_y, node->bounds.max_x, node->bounds.max_y), 
         node->depth + 1); // SE
     
     // Check if any children failed to allocate
@@ -204,10 +208,25 @@ static void sonar_quad_subdivide(SonarChart* chart, SonarQuadNode* node) {
     // Redistribute points to children
     for(uint16_t i = 0; i < node->point_count; i++) {
         SonarPoint* point = node->points[i];
+        bool point_placed = false;
         for(int j = 0; j < 4; j++) {
             if(sonar_bounds_contains_point(node->children[j]->bounds, point->world_x, point->world_y)) {
                 sonar_quad_insert(chart, node->children[j], point);
+                point_placed = true;
                 break;
+            }
+        }
+        
+        // DEBUG: Log if a point gets lost during subdivision
+        if(!point_placed) {
+            FURI_LOG_E("QUAD_BUG", "POINT LOST in subdivision! Point (%d,%d) %s doesn't fit in any child", 
+                      point->world_x, point->world_y, point->is_terrain ? "TERRAIN" : "water");
+            FURI_LOG_E("QUAD_BUG", "Parent bounds: (%d,%d) to (%d,%d)", 
+                      node->bounds.min_x, node->bounds.min_y, node->bounds.max_x, node->bounds.max_y);
+            for(int j = 0; j < 4; j++) {
+                FURI_LOG_E("QUAD_BUG", "Child %d bounds: (%d,%d) to (%d,%d)", j,
+                          node->children[j]->bounds.min_x, node->children[j]->bounds.min_y,
+                          node->children[j]->bounds.max_x, node->children[j]->bounds.max_y);
             }
         }
     }
