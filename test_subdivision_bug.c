@@ -1,7 +1,79 @@
-#include "sonar_chart.h"
-#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+
+// Mock FURI functions for testing
+#define FURI_LOG_I(tag, format, ...) printf("[%s] " format "\n", tag, ##__VA_ARGS__)
+#define FURI_LOG_E(tag, format, ...) printf("[ERROR %s] " format "\n", tag, ##__VA_ARGS__)
+#define furi_get_tick() 0
+
+// Exact sonar chart definitions from the real code
+#define SONAR_QUADTREE_MAX_DEPTH 6
+#define SONAR_QUADTREE_MAX_POINTS 32
+#define SONAR_FADE_STAGES 4
+#define SONAR_FADE_DURATION_MS 15000
+#define SONAR_MAX_POINTS 512
+
+typedef enum {
+    SONAR_FADE_FULL = 0,
+    SONAR_FADE_BRIGHT = 1,
+    SONAR_FADE_DIM = 2,
+    SONAR_FADE_FAINT = 3,
+    SONAR_FADE_GONE = 4
+} SonarFadeState;
+
+typedef struct {
+    int16_t world_x;
+    int16_t world_y;
+    uint32_t discovery_time;
+    SonarFadeState fade_state;
+    bool is_terrain;
+} SonarPoint;
+
+typedef struct {
+    int16_t min_x, min_y;
+    int16_t max_x, max_y;
+} SonarBounds;
+
+typedef struct SonarQuadNode {
+    SonarBounds bounds;
+    uint8_t depth;
+    bool is_leaf;
+    uint16_t point_count;
+    SonarPoint* points[SONAR_QUADTREE_MAX_POINTS];
+    struct SonarQuadNode* children[4];
+} SonarQuadNode;
+
+typedef struct {
+    SonarQuadNode* nodes;
+    bool* node_in_use;
+    uint16_t pool_size;
+    uint16_t next_free;
+} SonarNodePool;
+
+typedef struct {
+    SonarPoint* points;
+    bool* point_in_use;
+    uint16_t pool_size;
+    uint16_t next_free;
+    uint16_t active_count;
+} SonarPointPool;
+
+typedef struct {
+    SonarQuadNode* root;
+    SonarNodePool node_pool;
+    SonarPointPool point_pool;
+    uint32_t last_fade_update;
+    uint16_t cache_count;
+    uint16_t points_added_this_frame;
+    uint16_t points_removed_this_frame;
+    uint16_t query_count_this_frame;
+    uint16_t points_faded_this_frame;
+} SonarChart;
 
 // Utility functions
 bool sonar_bounds_intersect(SonarBounds a, SonarBounds b) {
@@ -19,7 +91,7 @@ SonarBounds sonar_bounds_create(int16_t min_x, int16_t min_y, int16_t max_x, int
     return bounds;
 }
 
-// Memory pool management
+// Memory pool functions (exact copy from real code)
 bool sonar_node_pool_init(SonarNodePool* pool, uint16_t size) {
     pool->nodes = malloc(size * sizeof(SonarQuadNode));
     pool->node_in_use = malloc(size * sizeof(bool));
@@ -55,7 +127,7 @@ SonarQuadNode* sonar_node_pool_alloc(SonarNodePool* pool) {
             return node;
         }
     }
-    return NULL; // Pool exhausted
+    return NULL;
 }
 
 void sonar_node_pool_free(SonarNodePool* pool, SonarQuadNode* node) {
@@ -92,7 +164,7 @@ void sonar_point_pool_cleanup(SonarPointPool* pool) {
 
 SonarPoint* sonar_point_pool_alloc(SonarPointPool* pool) {
     if(pool->active_count >= pool->pool_size) {
-        return NULL; // Pool exhausted
+        return NULL;
     }
     
     for(uint16_t i = 0; i < pool->pool_size; i++) {
@@ -120,29 +192,83 @@ void sonar_point_pool_free(SonarPointPool* pool, SonarPoint* point) {
     }
 }
 
-// Fade management
-SonarFadeState sonar_chart_get_fade_state(SonarPoint* point, uint32_t current_time) {
-    uint32_t age = current_time - point->discovery_time;
-    uint32_t stage = age / SONAR_FADE_DURATION_MS;
+// Forward declarations
+SonarQuadNode* sonar_quad_create(SonarChart* chart, SonarBounds bounds, uint8_t depth);
+void sonar_quad_free(SonarChart* chart, SonarQuadNode* node);
+bool sonar_quad_insert(SonarChart* chart, SonarQuadNode* node, SonarPoint* point);
+
+// EXACT subdivision logic from real code
+static void sonar_quad_subdivide(SonarChart* chart, SonarQuadNode* node) {
+    if(!node->is_leaf || node->depth >= SONAR_QUADTREE_MAX_DEPTH) return;
     
-    if(stage >= SONAR_FADE_STAGES) {
-        return SONAR_FADE_GONE;
+    int16_t mid_x = (node->bounds.min_x + node->bounds.max_x) / 2;
+    int16_t mid_y = (node->bounds.min_y + node->bounds.max_y) / 2;
+    
+    printf("  SUBDIVIDING node at depth %d: bounds (%d,%d) to (%d,%d), mid=(%d,%d)\n", 
+           node->depth, node->bounds.min_x, node->bounds.min_y, 
+           node->bounds.max_x, node->bounds.max_y, mid_x, mid_y);
+    
+    // Create four child nodes (exact bounds from real code)
+    node->children[0] = sonar_quad_create(chart, 
+        sonar_bounds_create(node->bounds.min_x, node->bounds.min_y, mid_x, mid_y), 
+        node->depth + 1); // NW
+    node->children[1] = sonar_quad_create(chart, 
+        sonar_bounds_create(mid_x + 1, node->bounds.min_y, node->bounds.max_x, mid_y), 
+        node->depth + 1); // NE
+    node->children[2] = sonar_quad_create(chart, 
+        sonar_bounds_create(node->bounds.min_x, mid_y + 1, mid_x, node->bounds.max_y), 
+        node->depth + 1); // SW
+    node->children[3] = sonar_quad_create(chart, 
+        sonar_bounds_create(mid_x + 1, mid_y + 1, node->bounds.max_x, node->bounds.max_y), 
+        node->depth + 1); // SE
+    
+    printf("    Child bounds: NW=(%d,%d)-(%d,%d), NE=(%d,%d)-(%d,%d)\n",
+           node->children[0]->bounds.min_x, node->children[0]->bounds.min_y, 
+           node->children[0]->bounds.max_x, node->children[0]->bounds.max_y,
+           node->children[1]->bounds.min_x, node->children[1]->bounds.min_y,
+           node->children[1]->bounds.max_x, node->children[1]->bounds.max_y);
+    printf("                  SW=(%d,%d)-(%d,%d), SE=(%d,%d)-(%d,%d)\n",
+           node->children[2]->bounds.min_x, node->children[2]->bounds.min_y,
+           node->children[2]->bounds.max_x, node->children[2]->bounds.max_y,
+           node->children[3]->bounds.min_x, node->children[3]->bounds.min_y,
+           node->children[3]->bounds.max_x, node->children[3]->bounds.max_y);
+    
+    // Check if any children failed to allocate
+    for(int i = 0; i < 4; i++) {
+        if(!node->children[i]) {
+            printf("    ERROR: Child %d allocation failed!\n", i);
+            for(int j = 0; j < i; j++) {
+                sonar_quad_free(chart, node->children[j]);
+                node->children[j] = NULL;
+            }
+            return;
+        }
     }
     
-    return (SonarFadeState)stage;
-}
-
-uint8_t sonar_fade_state_opacity(SonarFadeState state) {
-    switch(state) {
-        case SONAR_FADE_FULL:   return 255; // 100%
-        case SONAR_FADE_BRIGHT: return 192; // 75%
-        case SONAR_FADE_DIM:    return 128; // 50%
-        case SONAR_FADE_FAINT:  return 64;  // 25%
-        default:                return 0;   // 0%
+    node->is_leaf = false;
+    
+    // Redistribute points to children
+    printf("  Redistributing %d points:\n", node->point_count);
+    for(uint16_t i = 0; i < node->point_count; i++) {
+        SonarPoint* point = node->points[i];
+        bool inserted = false;
+        for(int j = 0; j < 4; j++) {
+            if(sonar_bounds_contains_point(node->children[j]->bounds, point->world_x, point->world_y)) {
+                printf("    Point (%d,%d) -> Child %d\n", point->world_x, point->world_y, j);
+                sonar_quad_insert(chart, node->children[j], point);
+                inserted = true;
+                break;
+            }
+        }
+        if(!inserted) {
+            printf("    ERROR: Point (%d,%d) didn't fit in any child!\n", point->world_x, point->world_y);
+        }
     }
+    
+    node->point_count = 0;
+    printf("  Subdivision complete\n");
 }
 
-// Quadtree operations
 SonarQuadNode* sonar_quad_create(SonarChart* chart, SonarBounds bounds, uint8_t depth) {
     SonarQuadNode* node = sonar_node_pool_alloc(&chart->node_pool);
     if(!node) return NULL;
@@ -167,54 +293,7 @@ void sonar_quad_free(SonarChart* chart, SonarQuadNode* node) {
     sonar_node_pool_free(&chart->node_pool, node);
 }
 
-static void sonar_quad_subdivide(SonarChart* chart, SonarQuadNode* node) {
-    if(!node->is_leaf || node->depth >= SONAR_QUADTREE_MAX_DEPTH) return;
-    
-    int16_t mid_x = (node->bounds.min_x + node->bounds.max_x) / 2;
-    int16_t mid_y = (node->bounds.min_y + node->bounds.max_y) / 2;
-    
-    // Create four child nodes
-    node->children[0] = sonar_quad_create(chart, 
-        sonar_bounds_create(node->bounds.min_x, node->bounds.min_y, mid_x, mid_y), 
-        node->depth + 1); // NW
-    node->children[1] = sonar_quad_create(chart, 
-        sonar_bounds_create(mid_x + 1, node->bounds.min_y, node->bounds.max_x, mid_y), 
-        node->depth + 1); // NE
-    node->children[2] = sonar_quad_create(chart, 
-        sonar_bounds_create(node->bounds.min_x, mid_y + 1, mid_x, node->bounds.max_y), 
-        node->depth + 1); // SW
-    node->children[3] = sonar_quad_create(chart, 
-        sonar_bounds_create(mid_x + 1, mid_y + 1, node->bounds.max_x, node->bounds.max_y), 
-        node->depth + 1); // SE
-    
-    // Check if any children failed to allocate
-    for(int i = 0; i < 4; i++) {
-        if(!node->children[i]) {
-            // Clean up and abort subdivision
-            for(int j = 0; j < i; j++) {
-                sonar_quad_free(chart, node->children[j]);
-                node->children[j] = NULL;
-            }
-            return;
-        }
-    }
-    
-    node->is_leaf = false;
-    
-    // Redistribute points to children
-    for(uint16_t i = 0; i < node->point_count; i++) {
-        SonarPoint* point = node->points[i];
-        for(int j = 0; j < 4; j++) {
-            if(sonar_bounds_contains_point(node->children[j]->bounds, point->world_x, point->world_y)) {
-                sonar_quad_insert(chart, node->children[j], point);
-                break;
-            }
-        }
-    }
-    
-    node->point_count = 0;
-}
-
+// EXACT insert logic from real code with subdivision
 bool sonar_quad_insert(SonarChart* chart, SonarQuadNode* node, SonarPoint* point) {
     if(!sonar_bounds_contains_point(node->bounds, point->world_x, point->world_y)) {
         return false;
@@ -227,6 +306,7 @@ bool sonar_quad_insert(SonarChart* chart, SonarQuadNode* node, SonarPoint* point
             return true;
         } else {
             // Need to subdivide
+            printf("Node full (%d points), subdividing...\n", node->point_count);
             sonar_quad_subdivide(chart, node);
             if(node->is_leaf) {
                 // Subdivision failed, force insert anyway
@@ -249,6 +329,7 @@ bool sonar_quad_insert(SonarChart* chart, SonarQuadNode* node, SonarPoint* point
     return false;
 }
 
+// EXACT query logic from real code
 bool sonar_quad_query(SonarChart* chart, SonarQuadNode* node, SonarBounds bounds, 
                       SonarPoint** out_points, uint16_t max_points, uint16_t* count) {
     if(!sonar_bounds_intersect(node->bounds, bounds)) {
@@ -276,43 +357,41 @@ bool sonar_quad_query(SonarChart* chart, SonarQuadNode* node, SonarBounds bounds
     return true;
 }
 
-void sonar_quad_cleanup_faded(SonarChart* chart, SonarQuadNode* node, uint32_t current_time) {
-    if(node->is_leaf) {
-        // Remove faded points from leaf nodes
-        uint16_t write_index = 0;
-        for(uint16_t read_index = 0; read_index < node->point_count; read_index++) {
-            SonarPoint* point = node->points[read_index];
-            SonarFadeState state = sonar_chart_get_fade_state(point, current_time);
-            
-            if(state >= SONAR_FADE_GONE) {
-                // Free the point
-                sonar_point_pool_free(&chart->point_pool, point);
-                chart->points_removed_this_frame++;
-            } else {
-                // Update fade state and keep point
-                point->fade_state = state;
-                node->points[write_index] = point;
-                write_index++;
-            }
+// Debugging helper
+void print_quadtree_structure(SonarQuadNode* node, int depth) {
+    if (!node) return;
+    
+    for (int i = 0; i < depth; i++) printf("  ");
+    printf("Node bounds: (%d,%d) to (%d,%d), depth=%d, points: %d, leaf: %s\n",
+           node->bounds.min_x, node->bounds.min_y, 
+           node->bounds.max_x, node->bounds.max_y,
+           node->depth, node->point_count, node->is_leaf ? "true" : "false");
+    
+    if (node->is_leaf) {
+        for (uint16_t i = 0; i < node->point_count; i++) {
+            SonarPoint* p = node->points[i];
+            for (int j = 0; j < depth + 1; j++) printf("  ");
+            printf("Point %d: (%d,%d) terrain=%s\n", i, p->world_x, p->world_y, 
+                   p->is_terrain ? "true" : "false");
         }
-        node->point_count = write_index;
     } else {
-        // Recursively clean children
-        for(int i = 0; i < 4; i++) {
-            sonar_quad_cleanup_faded(chart, node->children[i], current_time);
+        for (int i = 0; i < 4; i++) {
+            if (node->children[i]) {
+                print_quadtree_structure(node->children[i], depth + 1);
+            }
         }
     }
 }
 
-// Sonar chart lifecycle
+// Chart lifecycle
 SonarChart* sonar_chart_alloc(void) {
     SonarChart* chart = malloc(sizeof(SonarChart));
     if(!chart) return NULL;
     
-    // Initialize memory pools - increased node pool size to prevent subdivision failures
-    if(!sonar_node_pool_init(&chart->node_pool, 128) ||
+    // Initialize memory pools
+    if(!sonar_node_pool_init(&chart->node_pool, 32) ||
        !sonar_point_pool_init(&chart->point_pool, SONAR_MAX_POINTS)) {
-        sonar_chart_free(chart);
+        free(chart);
         return NULL;
     }
     
@@ -320,14 +399,11 @@ SonarChart* sonar_chart_alloc(void) {
     SonarBounds root_bounds = sonar_bounds_create(-32768, -32768, 32767, 32767);
     chart->root = sonar_quad_create(chart, root_bounds, 0);
     if(!chart->root) {
-        sonar_chart_free(chart);
+        free(chart);
         return NULL;
     }
     
-    // Initialize other fields
-    chart->last_fade_update = 0;
-    chart->cache_count = 0;
-    sonar_chart_reset_frame_stats(chart);
+    chart->points_added_this_frame = 0;
     
     return chart;
 }
@@ -335,128 +411,100 @@ SonarChart* sonar_chart_alloc(void) {
 void sonar_chart_free(SonarChart* chart) {
     if(!chart) return;
     
-    if(chart->root) {
-        sonar_quad_free(chart, chart->root);
-    }
-    
+    sonar_quad_free(chart, chart->root);
     sonar_node_pool_cleanup(&chart->node_pool);
     sonar_point_pool_cleanup(&chart->point_pool);
     
     free(chart);
 }
 
-// Core sonar operations
 bool sonar_chart_add_point(SonarChart* chart, int16_t world_x, int16_t world_y, bool is_terrain) {
-    // Debug: Log all terrain point additions
-    static int add_debug_count = 0;
-    if(is_terrain && add_debug_count < 20) {
-        FURI_LOG_I("CHART_ADD", "Adding terrain point at (%d,%d)", world_x, world_y);
-        add_debug_count++;
-    }
-    
-    // Check if point already exists (within 1 unit tolerance)
-    SonarPoint* existing;
-    if(sonar_chart_query_point(chart, world_x, world_y, &existing)) {
-        // Debug: Log when we find existing point
-        if(is_terrain && add_debug_count < 20) {
-            FURI_LOG_I("CHART_ADD", "Found existing point at (%d,%d) for new point (%d,%d)", 
-                      existing->world_x, existing->world_y, world_x, world_y);
-        }
-        
-        // Update existing point
-        existing->discovery_time = furi_get_tick();
-        existing->fade_state = SONAR_FADE_FULL;
-        // Preserve terrain flag: once terrain, always terrain (terrain overrides water)
-        if(is_terrain) {
-            existing->is_terrain = true;
-        }
-        // If adding water to existing water point, keep it as water (no change needed)
-        return true;
-    }
-    
-    // Allocate new point
     SonarPoint* point = sonar_point_pool_alloc(&chart->point_pool);
-    if(!point) return false; // Memory exhausted
+    if(!point) return false;
     
     point->world_x = world_x;
     point->world_y = world_y;
     point->discovery_time = furi_get_tick();
-    point->fade_state = SONAR_FADE_FULL;
     point->is_terrain = is_terrain;
     
-    // Debug: Log successful new point creation
-    if(is_terrain && add_debug_count <= 20) {
-        FURI_LOG_I("CHART_ADD", "Created NEW terrain point at (%d,%d)", world_x, world_y);
-    }
-    
-    // Insert into quadtree
     if(sonar_quad_insert(chart, chart->root, point)) {
         chart->points_added_this_frame++;
         return true;
     } else {
-        // Failed to insert, free the point
         sonar_point_pool_free(&chart->point_pool, point);
         return false;
     }
 }
 
-bool sonar_chart_query_point(SonarChart* chart, int16_t world_x, int16_t world_y, SonarPoint** out_point) {
-    SonarBounds query_bounds = sonar_bounds_create(world_x, world_y, world_x, world_y);
-    SonarPoint* nearby_points[9];
-    uint16_t count = 0;
-    
-    sonar_quad_query(chart, chart->root, query_bounds, nearby_points, 9, &count);
-    
-    // Find closest point
-    int16_t best_distance = INT16_MAX;
-    SonarPoint* best_point = NULL;
-    
-    for(uint16_t i = 0; i < count; i++) {
-        int16_t dx = nearby_points[i]->world_x - world_x;
-        int16_t dy = nearby_points[i]->world_y - world_y;
-        int16_t distance = abs(dx) + abs(dy); // Manhattan distance
-        
-        if(distance < best_distance) {
-            best_distance = distance;
-            best_point = nearby_points[i];
-        }
-    }
-    
-    if(best_point && best_distance <= 0) {
-        *out_point = best_point;
-        return true;
-    }
-    
-    return false;
-}
-
 uint16_t sonar_chart_query_area(SonarChart* chart, SonarBounds bounds, SonarPoint** out_points, uint16_t max_points) {
     uint16_t count = 0;
     sonar_quad_query(chart, chart->root, bounds, out_points, max_points, &count);
-    chart->query_count_this_frame++;
     return count;
 }
 
-void sonar_chart_update_fade(SonarChart* chart, uint32_t current_time) {
-    if(current_time - chart->last_fade_update < 1000) { // Update every second
-        return;
+int main() {
+    printf("Testing quadtree subdivision bug\n");
+    printf("================================\n\n");
+    
+    SonarChart* chart = sonar_chart_alloc();
+    if(!chart) {
+        printf("FAIL: Chart allocation failed\n");
+        return 1;
     }
     
-    chart->last_fade_update = current_time;
-    chart->points_faded_this_frame = 0;
+    // Add the exact terrain coordinates from the logs
+    int terrain_coords[][2] = {
+        {66, 51}, {66, 52}, {66, 53}, {66, 48}, {66, 50},
+        {66, 47}, {66, 49}, {61, 61}, {66, 45}, {70, 57},
+        {63, 61}, {62, 62}, {60, 63}, {57, 63}, {48, 55}
+    };
     
-    sonar_quad_cleanup_faded(chart, chart->root, current_time);
-}
-
-// Performance monitoring
-void sonar_chart_reset_frame_stats(SonarChart* chart) {
-    chart->points_added_this_frame = 0;
-    chart->points_removed_this_frame = 0;
-    chart->query_count_this_frame = 0;
-    chart->points_faded_this_frame = 0;
-}
-
-void sonar_chart_log_performance(SonarChart* chart) {
-    // This would normally log to debug output
-    sonar_chart_reset_frame_stats(chart);
+    printf("Adding 15 terrain points:\n");
+    for (int i = 0; i < 15; i++) {
+        printf("Adding terrain point at (%d,%d)\n", terrain_coords[i][0], terrain_coords[i][1]);
+        bool result = sonar_chart_add_point(chart, terrain_coords[i][0], terrain_coords[i][1], true);
+        if (!result) {
+            printf("ERROR: Failed to add terrain point at (%d,%d)\n", terrain_coords[i][0], terrain_coords[i][1]);
+        }
+    }
+    
+    // Add some water points to trigger more subdivision
+    printf("\nAdding water points to trigger subdivision:\n");
+    for (int i = 60; i < 66; i++) {
+        for (int j = 51; j <= 53; j++) {
+            printf("Adding water point at (%d,%d)\n", i, j);
+            sonar_chart_add_point(chart, i, j, false);
+        }
+    }
+    
+    printf("\nFinal quadtree structure:\n");
+    print_quadtree_structure(chart->root, 0);
+    
+    // Query the exact area from the logs: (-20,-29) to (140,131)
+    printf("\n=== CRITICAL TEST: Querying area (-20,-29) to (140,131) ===\n");
+    SonarBounds query_bounds = sonar_bounds_create(-20, -29, 140, 131);
+    SonarPoint* results[50];
+    uint16_t total_count = sonar_chart_query_area(chart, query_bounds, results, 50);
+    
+    printf("Query returned %d points:\n", total_count);
+    int terrain_count = 0, water_count = 0;
+    for (int i = 0; i < total_count; i++) {
+        printf("  Point %d: (%d,%d) terrain=%s\n", i,
+               results[i]->world_x, results[i]->world_y,
+               results[i]->is_terrain ? "TRUE" : "FALSE");
+        if (results[i]->is_terrain) terrain_count++;
+        else water_count++;
+    }
+    
+    printf("\nSUMMARY: Total=%d, Terrain=%d, Water=%d\n", total_count, terrain_count, water_count);
+    
+    if (terrain_count >= 10) {
+        printf("SUCCESS: Found many terrain points as expected! ✓\n");
+    } else {
+        printf("BUG REPRODUCED: Only found %d terrain points, expected ~15! ✗\n", terrain_count);
+        printf("This matches the bug seen in the real game!\n");
+    }
+    
+    sonar_chart_free(chart);
+    return (terrain_count < 10) ? 1 : 0;
 }

@@ -29,4 +29,5 @@ test_*
 test/*/test_*
 !test/*/*.c
 !test/*/*.h
+adhoclog.txt
 adhoc

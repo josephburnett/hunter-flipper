@@ -78,6 +78,10 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
                                 int16_t start_x, int16_t start_y, RayResult* results,
                                 bool (*collision_func)(int16_t x, int16_t y, void* context), void* context);
 
+uint16_t raycaster_cast_pattern_with_radius(Raycaster* raycaster, RayPattern* pattern, 
+                                            int16_t start_x, int16_t start_y, uint16_t max_radius, RayResult* results,
+                                            bool (*collision_func)(int16_t x, int16_t y, void* context), void* context);
+
 // Bresenham line algorithm implementation
 void raycaster_bresham_init(Raycaster* raycaster, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 bool raycaster_bresham_step(Raycaster* raycaster, int16_t* out_x, int16_t* out_y);

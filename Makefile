@@ -4,7 +4,7 @@
 # Path to ufbt virtual environment
 UFBT = ~/ufbt-env/bin/ufbt
 
-.PHONY: all build clean launch debug help install test test-clean
+.PHONY: all build clean launch debug help install test test-clean cli
 
 # Default target
 all: build
@@ -40,6 +40,10 @@ format:
 # Lint code (if available) 
 lint:
 	$(UFBT) lint
+
+# Connect to Flipper Zero CLI for viewing logs
+cli:
+	$(UFBT) cli
 
 # Test suite - build and run all tests
 test:
@@ -95,6 +99,7 @@ help:
 	@echo "  info    - Show build information"
 	@echo "  format  - Format source code"
 	@echo "  lint    - Lint source code"
+	@echo "  cli     - Connect to Flipper Zero CLI for viewing logs"
 	@echo "  test    - Build and run complete test suite"
 	@echo "  test-build - Build all test binaries"
 	@echo "  test-clean - Clean test binaries"

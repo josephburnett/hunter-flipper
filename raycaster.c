@@ -84,11 +84,8 @@ void raycaster_bresham_init(Raycaster* raycaster, int16_t x0, int16_t y0, int16_
     
     raycaster->bresham_steep = raycaster->bresham_dy > raycaster->bresham_dx;
     
-    if(raycaster->bresham_steep) {
-        raycaster->bresham_err = raycaster->bresham_dx - raycaster->bresham_dy;
-    } else {
-        raycaster->bresham_err = raycaster->bresham_dx - raycaster->bresham_dy;
-    }
+    // Standard Bresenham error initialization
+    raycaster->bresham_err = raycaster->bresham_dx - raycaster->bresham_dy;
 }
 
 bool raycaster_bresham_step(Raycaster* raycaster, int16_t* out_x, int16_t* out_y) {
@@ -175,6 +172,12 @@ bool raycaster_cast_ray(Raycaster* raycaster, int16_t start_x, int16_t start_y,
 uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern, 
                                 int16_t start_x, int16_t start_y, RayResult* results,
                                 bool (*collision_func)(int16_t x, int16_t y, void* context), void* context) {
+    return raycaster_cast_pattern_with_radius(raycaster, pattern, start_x, start_y, pattern->max_radius, results, collision_func, context);
+}
+
+uint16_t raycaster_cast_pattern_with_radius(Raycaster* raycaster, RayPattern* pattern, 
+                                            int16_t start_x, int16_t start_y, uint16_t max_radius, RayResult* results,
+                                            bool (*collision_func)(int16_t x, int16_t y, void* context), void* context) {
     uint16_t hits = 0;
     
     for(uint16_t i = 0; i < pattern->direction_count; i++) {
@@ -183,14 +186,14 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
             // Initialize skipped result as water at max distance
             results[i].ray_complete = true;
             results[i].hit_terrain = false;
-            results[i].distance = pattern->max_radius;
+            results[i].distance = max_radius;
             results[i].hit_x = start_x;
             results[i].hit_y = start_y;
             continue;
         }
         
         if(raycaster_cast_ray(raycaster, start_x, start_y, pattern->directions[i], 
-                              pattern->max_radius, &results[i], collision_func, context)) {
+                              max_radius, &results[i], collision_func, context)) {
             hits++;
         }
     }

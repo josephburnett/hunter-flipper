@@ -81,6 +81,7 @@ typedef struct {
     uint8_t current_quality_level;
     RayPattern sonar_pattern_full;
     int16_t bres_x, bres_y, bres_dx, bres_dy, bres_sx, bres_sy, bres_err;
+    int16_t start_x, start_y; // Store start point for distance calculation
     bool bres_active;
 } Raycaster;
 
@@ -250,6 +251,9 @@ void raycaster_bresham_init(Raycaster* raycaster, int16_t x0, int16_t y0, int16_
     raycaster->bres_sy = (y0 < y1) ? 1 : -1;
     raycaster->bres_err = raycaster->bres_dx + raycaster->bres_dy;
     raycaster->bres_active = true;
+    // Store start point for distance calculation
+    raycaster->start_x = x0;
+    raycaster->start_y = y0;
 }
 
 bool raycaster_bresham_step(Raycaster* raycaster, int16_t* x, int16_t* y) {
@@ -270,8 +274,9 @@ bool raycaster_bresham_step(Raycaster* raycaster, int16_t* x, int16_t* y) {
         }
     }
     
-    int16_t dx = abs(raycaster->bres_x);
-    int16_t dy = abs(raycaster->bres_y);
+    // Calculate distance from start point
+    int16_t dx = raycaster->bres_x - raycaster->start_x;
+    int16_t dy = raycaster->bres_y - raycaster->start_y;
     if (dx * dx + dy * dy > 64 * 64) {
         raycaster->bres_active = false;
         return false;
@@ -282,9 +287,9 @@ bool raycaster_bresham_step(Raycaster* raycaster, int16_t* x, int16_t* y) {
 
 typedef bool (*collision_callback_t)(int16_t x, int16_t y, void* context);
 
-uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern, 
-                               int16_t start_x, int16_t start_y, RayResult* results,
-                               collision_callback_t collision_check, void* collision_context) {
+uint16_t raycaster_cast_pattern_with_radius(Raycaster* raycaster, RayPattern* pattern, 
+                                          int16_t start_x, int16_t start_y, uint16_t max_radius, RayResult* results,
+                                          collision_callback_t collision_check, void* collision_context) {
     uint16_t hits = 0;
     raycaster->rays_cast_this_frame = pattern->direction_count;
     
@@ -292,8 +297,14 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
         RayDirection* dir = &pattern->directions[i];
         RayResult* result = &results[i];
         
-        int16_t end_x = start_x + (dir->dx * 64 / 1000);
-        int16_t end_y = start_y + (dir->dy * 64 / 1000);
+        int16_t end_x = start_x + (dir->dx * max_radius / 1000);
+        int16_t end_y = start_y + (dir->dy * max_radius / 1000);
+        
+        // Debug: print first few ray directions and endpoints
+        if (i < 2 && max_radius <= 6) {
+            printf("          Ray %d: start=(%d,%d) dir=(%d,%d) end=(%d,%d) max_radius=%d\n", 
+                   i, start_x, start_y, dir->dx, dir->dy, end_x, end_y, max_radius);
+        }
         
         raycaster_bresham_init(raycaster, start_x, start_y, end_x, end_y);
         
@@ -301,8 +312,17 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
         int16_t steps = 0;
         bool found_collision = false;
         
-        while (raycaster_bresham_step(raycaster, &x, &y) && steps < 64) {
+        while (raycaster_bresham_step(raycaster, &x, &y) && steps < max_radius) {
+            // Debug: print step info for first ray, first few steps
+            if (i < 1 && steps < 3 && max_radius <= 6) {
+                printf("          Ray %d step %d: bresham returned (%d,%d), steps=%d, max_radius=%d\n", 
+                       i, steps, x, y, steps, max_radius);
+            }
             if (x != start_x || y != start_y) {
+                // Debug: print first few coordinates for first few rays
+                if (i < 2 && steps < 5 && max_radius <= 6) {
+                    printf("          Ray %d step %d: checking (%d,%d)\n", i, steps, x, y);
+                }
                 if (collision_check(x, y, collision_context)) {
                     result->hit_terrain = true;
                     result->hit_x = x;
@@ -327,6 +347,12 @@ uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern,
     }
     
     return hits;
+}
+
+uint16_t raycaster_cast_pattern(Raycaster* raycaster, RayPattern* pattern, 
+                               int16_t start_x, int16_t start_y, RayResult* results,
+                               collision_callback_t collision_check, void* collision_context) {
+    return raycaster_cast_pattern_with_radius(raycaster, pattern, start_x, start_y, 64, results, collision_check, collision_context);
 }
 
 // Simple sonar chart
@@ -418,9 +444,15 @@ int main(void) {
             RayResult results[RAY_CACHE_SIZE];
             memset(results, 0, sizeof(results));
             
-            uint16_t total_hits = raycaster_cast_pattern(
+            // Debug: print pattern info for first frame
+            if (frame < 1) {
+                printf("        Pattern has %d rays, max_radius=%d\n", pattern->direction_count, pattern->max_radius);
+            }
+            
+            uint16_t total_hits = raycaster_cast_pattern_with_radius(
                 raycaster, pattern,
                 (int16_t)ping_x, (int16_t)ping_y,
+                ping_radius,
                 results, test_collision_callback, chunk_manager
             );
             

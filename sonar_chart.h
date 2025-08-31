@@ -3,7 +3,7 @@
 
 // Sonar chart configuration - optimized for Flipper Zero memory
 #define SONAR_QUADTREE_MAX_DEPTH 6      // Reduced from 8
-#define SONAR_QUADTREE_MAX_POINTS 8     // Reduced from 16
+#define SONAR_QUADTREE_MAX_POINTS 32    // Increased to handle dense terrain discovery
 #define SONAR_FADE_STAGES 4
 #define SONAR_FADE_DURATION_MS 15000    // 15 seconds per stage
 #define SONAR_MAX_POINTS 512            // Reduced from 2048

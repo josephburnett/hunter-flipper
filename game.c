@@ -173,29 +173,44 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
             game_context->ping_radius += 2;
             game_context->ping_timer = current_time;
             
+            // Clean debug: ping summary every 5th ping
+            static int debug_ping_count = 0;
+            
             // Use optimized raycasting with adaptive quality
             RayPattern* pattern = raycaster_get_adaptive_pattern(game_context->raycaster, false);
             RayResult results[RAY_CACHE_SIZE];
             
             // Cast rays from ping center up to current radius
-            raycaster_cast_pattern(
+            raycaster_cast_pattern_with_radius(
                 game_context->raycaster, 
                 pattern,
                 (int16_t)game_context->ping_x, 
                 (int16_t)game_context->ping_y,
+                game_context->ping_radius,
                 results,
                 collision_check_callback,
                 game_context->chunk_manager
             );
             
+            
             // Add discoveries to sonar chart
+            int terrain_points_added = 0;
             for(uint16_t i = 0; i < pattern->direction_count; i++) {
                 RayResult* result = &results[i];
                 if(result->ray_complete) {
                     // If ray hit terrain within ping radius, add it
                     if(result->hit_terrain && result->distance <= game_context->ping_radius) {
+                        // Debug: Log first few terrain hits per ping
+                        static int ray_debug_count = 0;
+                        if(ray_debug_count < 15) {
+                            FURI_LOG_I("RAY_HIT", "Ray %d: hit terrain at (%d,%d) distance=%d", 
+                                      i, result->hit_x, result->hit_y, result->distance);
+                            ray_debug_count++;
+                        }
+                        
                         sonar_chart_add_point(game_context->sonar_chart, 
                                              result->hit_x, result->hit_y, true);
+                        terrain_points_added++;
                         
                         // Add intermediate water points along the ray
                         int16_t start_x = (int16_t)game_context->ping_x;
@@ -207,7 +222,16 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
                         for(uint16_t step = 3; step < result->distance; step += 3) {
                             int16_t water_x = start_x + (dx * step) / result->distance;
                             int16_t water_y = start_y + (dy * step) / result->distance;
-                            sonar_chart_add_point(game_context->sonar_chart, water_x, water_y, false);
+                            
+                            // Don't add water points at terrain coordinates (prevent overwrite)
+                            // Check both current terrain hit and any existing terrain points
+                            SonarPoint* existing;
+                            bool is_terrain_location = (water_x == result->hit_x && water_y == result->hit_y) ||
+                                                      (sonar_chart_query_point(game_context->sonar_chart, water_x, water_y, &existing) && existing->is_terrain);
+                            
+                            if(!is_terrain_location) {
+                                sonar_chart_add_point(game_context->sonar_chart, water_x, water_y, false);
+                            }
                         }
                     } else if(!result->hit_terrain || result->distance > game_context->ping_radius) {
                         // Ray extends beyond ping radius or didn't hit terrain
@@ -217,10 +241,22 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
                         float angle = raycaster_direction_to_angle(pattern->directions[i]);
                         int16_t edge_x = start_x + (int16_t)(cosf(angle) * game_context->ping_radius);
                         int16_t edge_y = start_y + (int16_t)(sinf(angle) * game_context->ping_radius);
-                        sonar_chart_add_point(game_context->sonar_chart, edge_x, edge_y, false);
+                        
+                        // Don't add water points at existing terrain locations
+                        SonarPoint* existing;
+                        if(!(sonar_chart_query_point(game_context->sonar_chart, edge_x, edge_y, &existing) && existing->is_terrain)) {
+                            sonar_chart_add_point(game_context->sonar_chart, edge_x, edge_y, false);
+                        }
                     }
                 }
             }
+            
+            // Clean debug: ping summary every 5th ping
+            if(debug_ping_count % 5 == 0 && debug_ping_count < 20) {
+                FURI_LOG_I("PING", "Ping #%d: radius=%d, found %d terrain", 
+                          debug_ping_count, game_context->ping_radius, terrain_points_added);
+            }
+            debug_ping_count++;
             
             if(game_context->ping_radius > 64) { // Increased max radius for infinite terrain
                 game_context->ping_active = false;
@@ -283,7 +319,30 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
         uint16_t point_count = sonar_chart_query_area(game_context->sonar_chart, 
                                                      query_bounds, visible_points, 512);
         
+        // Render debug: Query area and point distribution - ALWAYS LOG FOR NOW
+        static int render_debug_count = 0;
+        if(true) {
+            int terrain_count = 0;
+            for(uint16_t i = 0; i < point_count; i++) {
+                if(visible_points[i]->is_terrain) terrain_count++;
+            }
+            FURI_LOG_I("RENDER_QUERY", "Sub at (%d,%d) queries area (%d,%d) to (%d,%d): %d total (%d terrain)", 
+                      (int)game_context->world_x, (int)game_context->world_y,
+                      query_bounds.min_x, query_bounds.min_y, query_bounds.max_x, query_bounds.max_y,
+                      point_count, terrain_count);
+            
+            // Log first few terrain coordinates
+            for(uint16_t i = 0; i < point_count && i < 10; i++) {
+                if(visible_points[i]->is_terrain) {
+                    FURI_LOG_I("TERRAIN_COORDS", "Terrain point %d: world=(%d,%d)", 
+                              i, visible_points[i]->world_x, visible_points[i]->world_y);
+                }
+            }
+            render_debug_count++;
+        }
+        
         // Draw discovered points with fading
+        int points_drawn = 0;
         for(uint16_t i = 0; i < point_count; i++) {
             SonarPoint* point = visible_points[i];
             
@@ -297,22 +356,62 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
                 if(point->is_terrain) {
                     // Draw terrain with fade-based intensity
                     uint8_t opacity = sonar_fade_state_opacity(point->fade_state);
+                    bool drawn = false;
+                    
+                    // Debug: Detailed point analysis for first few points  
+                    static int point_debug_count = 0;
+                    if(point_debug_count < 15) {
+                        bool on_screen = (screen.screen_x >= 0 && screen.screen_x < 128 &&
+                                        screen.screen_y >= 0 && screen.screen_y < 64);
+                        bool will_draw = (opacity > 128);
+                        FURI_LOG_I("RENDER_POINT", "Point #%d: world=(%d,%d) screen=(%d,%d) fade=%d opacity=%d on_screen=%d will_draw=%d", 
+                                  point_debug_count, point->world_x, point->world_y, 
+                                  (int)screen.screen_x, (int)screen.screen_y, point->fade_state, opacity, on_screen, will_draw);
+                        
+                        // Additional debug: show world-to-screen transform details
+                        float rel_x = point->world_x - game_context->world_x;
+                        float rel_y = point->world_y - game_context->world_y; 
+                        FURI_LOG_I("RENDER_TRANSFORM", "Point #%d: rel=(%d,%d) sub_pos=(%d,%d) heading=%.2f", 
+                                  point_debug_count, (int)rel_x, (int)rel_y,
+                                  (int)game_context->world_x, (int)game_context->world_y, (double)game_context->heading);
+                        point_debug_count++;
+                    }
                     if(opacity > 128) {
+                        // Track screen coordinate overlaps
+                        static int draw_debug_count = 0;
+                        if(draw_debug_count < 10) {
+                            FURI_LOG_I("DRAW_DOT", "Drawing terrain dot #%d at screen=(%d,%d) from world=(%d,%d)", 
+                                      draw_debug_count, (int)screen.screen_x, (int)screen.screen_y, 
+                                      point->world_x, point->world_y);
+                            draw_debug_count++;
+                        }
                         canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                        drawn = true;
                     } else if(opacity > 64) {
                         // Draw dimmer terrain (every other pixel)
                         if(((int)screen.screen_x + (int)screen.screen_y) % 2 == 0) {
                             canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                            drawn = true;
                         }
                     } else if(opacity > 32) {
                         // Draw very dim terrain (every fourth pixel)
                         if(((int)screen.screen_x + (int)screen.screen_y) % 4 == 0) {
                             canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                            drawn = true;
                         }
                     }
+                    if(drawn) points_drawn++;
                 }
                 // Water points are not drawn (negative space)
             }
+        }
+        
+        // Final render summary
+        static int render_summary_count = 0;
+        if(render_summary_count < 5) {
+            FURI_LOG_I("RENDER_SUMMARY", "Drew %d terrain points out of %d total (sub at %d,%d)", 
+                      points_drawn, point_count, (int)game_context->world_x, (int)game_context->world_y);
+            render_summary_count++;
         }
     }
     
