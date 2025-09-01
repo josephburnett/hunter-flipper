@@ -65,9 +65,9 @@ bool test_quadtree_subdivision_preserves_points() {
     int points_added = 0;
     
     for(int i = 0; i < target_points; i++) {
-        // Scatter points to avoid too much concentration
-        int x = 60 + (i % 5);  // X varies 60-64
-        int y = 50 + (i % 4);  // Y varies 50-53
+        // Use unique coordinates to avoid duplicates
+        int x = 60 + (i % 8);  // X varies 60-67
+        int y = 50 + (i / 8);  // Y varies 50+ (no duplicates)
         
         bool added = sonar_chart_add_point(chart, x, y, true);
         if(added) {
@@ -165,9 +165,9 @@ bool test_progressive_subdivision() {
     int max_test_points = SONAR_QUADTREE_MAX_POINTS * 2;  // Double the limit
     
     for(int stage = 1; stage <= max_test_points; stage++) {
-        // Add one more point
-        int x = 60 + (stage % 10);
-        int y = 50 + (stage % 8);
+        // Add one unique point per stage
+        int x = 60 + ((stage - 1) % 10);
+        int y = 50 + ((stage - 1) / 10);
         
         bool added = sonar_chart_add_point(chart, x, y, true);
         if(!added) {

@@ -265,6 +265,14 @@ bool sonar_quad_insert(SonarChart* chart, SonarQuadNode* node, SonarPoint* point
         }
     }
     
+    // CRITICAL FIX: If no child can accept the point, force insert into parent
+    // This prevents point loss when subdivision boundaries fail
+    if(node->point_count < SONAR_QUADTREE_MAX_POINTS) {
+        node->points[node->point_count] = point;
+        node->point_count++;
+        return true;
+    }
+    
     return false;
 }
 
@@ -285,6 +293,19 @@ bool sonar_quad_query(SonarChart* chart, SonarQuadNode* node, SonarBounds bounds
             }
         }
     } else {
+        // CRITICAL FIX: Check points in the parent node first
+        // This handles points that were force-inserted into parent when child insertion failed
+        for(uint16_t i = 0; i < node->point_count; i++) {
+            if(*count >= max_points) return false; // Buffer full
+            
+            SonarPoint* point = node->points[i];
+            if(sonar_bounds_contains_point(bounds, point->world_x, point->world_y)) {
+                out_points[*count] = point;
+                (*count)++;
+            }
+        }
+        
+        // Then check child nodes
         for(int i = 0; i < 4; i++) {
             if(node->children[i] && !sonar_quad_query(chart, node->children[i], bounds, out_points, max_points, count)) {
                 return false; // Buffer full
