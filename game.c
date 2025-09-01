@@ -97,7 +97,7 @@ static void submarine_start(Entity* self, GameManager* manager, void* context) {
     SubmarineContext* sub_context = context;
     
     // Initialize submarine at center of screen
-    entity_pos_set(self, (Vector){64, 32});
+    entity_pos_set(self, (Vector){27, 32});
     
     // Add collision detection
     entity_collider_add_circle(self, 2);
@@ -115,22 +115,24 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     
     InputState input = game_manager_input_get(manager);
     
-    // Handle movement controls
-    if(input.held & GameKeyLeft) {
+    // Handle movement controls (rotated 90° counter-clockwise)
+    // Up button now controls left turn, Down button controls right turn
+    // Left button now controls forward thrust, Right button controls reverse
+    if(input.held & GameKeyUp) {
         game_context->heading -= game_context->turn_rate;
         if(game_context->heading < 0) game_context->heading += 1.0f;
     }
-    if(input.held & GameKeyRight) {
+    if(input.held & GameKeyDown) {
         game_context->heading += game_context->turn_rate;
         if(game_context->heading >= 1.0f) game_context->heading -= 1.0f;
     }
-    if(input.held & GameKeyUp) {
+    if(input.held & GameKeyLeft) {
         game_context->velocity += game_context->acceleration;
         if(game_context->velocity > game_context->max_velocity) {
             game_context->velocity = game_context->max_velocity;
         }
     }
-    if(input.held & GameKeyDown) {
+    if(input.held & GameKeyRight) {
         game_context->velocity -= game_context->acceleration;
         if(game_context->velocity < 0) game_context->velocity = 0;
     }
@@ -212,6 +214,17 @@ static void submarine_update(Entity* self, GameManager* manager, void* context) 
     entity_pos_set(self, (Vector){game_context->screen_x, game_context->screen_y});
 }
 
+// Rotate coordinates 90° counter-clockwise: (x,y) -> (y, 127-x)
+typedef struct {
+    int x;
+    int y;
+} RotatedPoint;
+
+static RotatedPoint rotate_coords(int x, int y) {
+    // Rotate 90 degrees counter-clockwise: (x,y) -> (63-y, x)
+    return (RotatedPoint){63 - y, x};
+}
+
 static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas, void* context) {
     UNUSED(self);
     UNUSED(manager);
@@ -242,7 +255,8 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
                         // Only draw if on screen
                         if(screen.screen_x >= 0 && screen.screen_x < 128 &&
                            screen.screen_y >= 0 && screen.screen_y < 64) {
-                            canvas_draw_dot(canvas, screen.screen_x, screen.screen_y);
+                            RotatedPoint rotated = rotate_coords(screen.screen_x, screen.screen_y);
+                            canvas_draw_dot(canvas, rotated.x, rotated.y);
                         }
                     }
                 }
@@ -250,45 +264,54 @@ static void submarine_render(Entity* self, GameManager* manager, Canvas* canvas,
         }
     }
     
-    // Draw submarine (always centered and pointing up)
-    canvas_draw_disc(canvas, game_context->screen_x, game_context->screen_y, 2);
+    // Draw submarine at bottom center (where player starts)
+    RotatedPoint sub_pos = rotate_coords(game_context->screen_x, game_context->screen_y);
+    canvas_draw_disc(canvas, sub_pos.x, sub_pos.y, 2);
     
-    // Draw heading indicator (always pointing up on screen)
+    // Draw heading indicator pointing up on screen
     float head_x = game_context->screen_x;
-    float head_y = game_context->screen_y - 8; // Point up
-    canvas_draw_line(canvas, game_context->screen_x, game_context->screen_y, head_x, head_y);
+    float head_y = game_context->screen_y + 8; // Point down in original coords (up after rotation)
+    RotatedPoint sub_rotated = rotate_coords(game_context->screen_x, game_context->screen_y);
+    RotatedPoint head_rotated = rotate_coords(head_x, head_y);
+    canvas_draw_line(canvas, sub_rotated.x, sub_rotated.y, head_rotated.x, head_rotated.y);
     
     // Draw velocity vector or torpedo targeting
     if(game_context->mode == GAME_MODE_NAV && game_context->velocity > 0.01f) {
-        // Navigation mode: show velocity vector (always pointing up)
+        // Navigation mode: show velocity vector pointing up
         float vel_x = game_context->screen_x;
-        float vel_y = game_context->screen_y - 8 - game_context->velocity * 20;
-        canvas_draw_line(canvas, head_x, head_y, vel_x, vel_y);
+        float vel_y = game_context->screen_y + 8 + game_context->velocity * 20;
+        RotatedPoint vel_rotated = rotate_coords(vel_x, vel_y);
+        canvas_draw_line(canvas, head_rotated.x, head_rotated.y, vel_rotated.x, vel_rotated.y);
     } else if(game_context->mode == GAME_MODE_TORPEDO) {
-        // Torpedo mode: show targeting cone (symmetric around up direction)
+        // Torpedo mode: show targeting cone
         float range = 30.0f;
-        float cone_offset = 8.0f; // pixels offset for cone width
+        float cone_offset = 8.0f;
         
         float target1_x = game_context->screen_x - cone_offset;
-        float target1_y = game_context->screen_y - range;
+        float target1_y = game_context->screen_y + range;
         float target2_x = game_context->screen_x + cone_offset;
-        float target2_y = game_context->screen_y - range;
+        float target2_y = game_context->screen_y + range;
         
-        canvas_draw_line(canvas, game_context->screen_x, game_context->screen_y, target1_x, target1_y);
-        canvas_draw_line(canvas, game_context->screen_x, game_context->screen_y, target2_x, target2_y);
+        RotatedPoint target1_rotated = rotate_coords(target1_x, target1_y);
+        RotatedPoint target2_rotated = rotate_coords(target2_x, target2_y);
+        canvas_draw_line(canvas, sub_rotated.x, sub_rotated.y, target1_rotated.x, target1_rotated.y);
+        canvas_draw_line(canvas, sub_rotated.x, sub_rotated.y, target2_rotated.x, target2_rotated.y);
     }
     
-    // Draw ping (transform ping center to screen)
+    // Draw ping
     if(game_context->ping_active) {
         ScreenPoint ping_screen = world_to_screen(game_context, game_context->ping_x, game_context->ping_y);
-        canvas_draw_circle(canvas, ping_screen.screen_x, ping_screen.screen_y, game_context->ping_radius);
+        RotatedPoint ping_rotated = rotate_coords(ping_screen.screen_x, ping_screen.screen_y);
+        canvas_draw_circle(canvas, ping_rotated.x, ping_rotated.y, game_context->ping_radius);
     }
     
-    // Draw HUD
-    canvas_printf(canvas, 2, 8, "V:%.2f H:%.2f", (double)game_context->velocity, (double)game_context->heading);
-    canvas_printf(canvas, 2, 62, "%s T:%d/%d", 
+    // Draw HUD directly at screen coordinates (no rotation for text)
+    // Since the screen is now 64x128, place HUD at actual top
+    canvas_printf(canvas, 2, 2, "V:%.2f H:%.2f", (double)game_context->velocity, (double)game_context->heading);
+    canvas_printf(canvas, 2, 12, "%s T:%d/%d", 
                   game_context->mode == GAME_MODE_NAV ? "NAV" : "TORP",
                   game_context->torpedo_count, game_context->max_torpedoes);
+    
 }
 
 static const EntityDescription submarine_desc = {
@@ -433,12 +456,13 @@ static void game_start(GameManager* game_manager, void* ctx) {
         memset(game_context->sonar_chart, 0, chart_size * sizeof(bool));
     }
     
-    // Set submarine screen position (always center)
-    game_context->screen_x = 64;  // Center of 128px screen
-    game_context->screen_y = 32;  // Center of 64px screen
+    // Set submarine screen position (will appear at bottom center after rotation)
+    // Using rotation (x,y) -> (63-y, x): to get (32, 100) we need (32, 31)
+    game_context->screen_x = 32;  // Horizontal center
+    game_context->screen_y = -37; // This will rotate to bottom of screen
     
     // Find a safe starting world position in water
-    game_context->world_x = 64;
+    game_context->world_x = 27;
     game_context->world_y = 32;
     
     // Search more thoroughly for water if starting position is in terrain

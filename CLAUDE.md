@@ -1,0 +1,1 @@
+- Do not run `make launch` yourself because it requires the flipperzero to be attached. Run the other make commands instead to test your build.
